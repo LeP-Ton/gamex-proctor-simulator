@@ -11,6 +11,7 @@ on:
       - "vite.config.ts"
       - "package.json"
       - "package-lock.json"
+      - ".npmrc"
       - "tsconfig*.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
