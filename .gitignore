@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.test-build/
+.sites-runtime/
+artifacts/
+*.log
+.DS_Store
