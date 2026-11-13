@@ -4,9 +4,9 @@
 
 ## GitHub Pages 发布
 
-源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，当前保持私有。Pages 配置已在 `codex/github-pages` 分支准备，尚未上线；GitHub 返回当前套餐不支持该私有仓库的 Pages，后续需要公开源码授权或可支持私有仓库 Pages 的套餐。
+源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开。GitHub Pages 首次发布进行中，当前以发布记录中的实际验证结果为准。
 
-发布配置位于 `.github/workflows/pages.yml`：启用 Pages 并将发布配置合入 main 后，代码、资源、测试或构建配置更新会先运行核心测试，再构建 `dist/` 并部署；也可手动运行工作流。纯文档更新不重复部署。
+发布配置位于 `.github/workflows/pages.yml`：main 的代码、资源、测试或构建配置更新会先运行核心测试，再构建 `dist/` 并部署；也可手动运行工作流。纯文档更新不重复部署。
 
 `vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
 
