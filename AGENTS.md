@@ -1,0 +1,14 @@
+# 项目长期约定
+
+- 项目：GameX《监考模拟器》，中文桌面浏览器单机观察游戏。
+- 技术栈：TypeScript、Canvas 2D、原生 DOM、Vite；无远程素材或推理服务依赖。
+- 沟通、文档和新增注释使用中文。需求记录入口为 `.agentdocs/index.md`。
+- `src/engine/` 负责种子随机、调度、世界状态、固定步长、举报及复盘；不依赖 DOM。
+- `src/render/` 负责共享场景几何、绘制与按绘制顺序拾取；隐藏事件状态不得改变正常悬停。
+- `src/ui/` 与 `src/main.ts` 负责界面及输入；`src/storage.ts` 管理本地成绩。
+- `npm run dev` 启动，`npm run build` 类型检查与生产构建，`npm test` 运行核心约束测试。
+- 计分时钟为整数固定步长；有效区间为开始包含、结束不包含。计分事件安排与装饰行为随机流独立。
+- 复盘必须从实际种子和输入日志重建，禁止修改原局；正式界面不泄露目标或倒计时。
+- 参数与规则版本集中在 `src/engine/config.ts`。规则变更须更新版本，避免混排成绩。
+- 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
+- GitHub Pages 由 `.github/workflows/pages.yml` 对 main 的运行相关变更自动测试、构建和部署；GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容仓库子路径。

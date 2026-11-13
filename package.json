@@ -1,0 +1,21 @@
+{
+  "name": "gamex-proctor-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
+    "test:browser": "npm run build && node tests/browser.mjs",
+    "test:stress": "npm test && node tests/stress.mjs",
+    "test:realtime": "npm run build && node tests/browser.mjs --realtime"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "playwright": "^1.65.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.4.0"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": ".test-build",
+    "rootDir": "."
+  },
+  "include": [
+    "src/engine/**/*.ts",
+    "src/render/geometry.ts",
+    "src/storage.ts",
+    "tests/**/*.ts"
+  ]
+}
