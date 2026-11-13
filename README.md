@@ -2,6 +2,16 @@
 
 在「考场视频巡查系统」中同时观察六路画面，发现明确违规后直接点击人物或物品。单局固定六分钟，挑战同种子下的最高成绩。
 
+## GitHub Pages 发布
+
+目标仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)。
+
+发布由 [GitHub Actions](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/workflows/pages.yml) 执行：推送 `main` 的代码、资源、测试或构建配置变更后，先运行核心测试，再构建 `dist/` 并部署到 Pages；也可手动运行工作流。纯文档更新不重复部署。
+
+`vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
+
+Pages 首次部署状态及最终访问地址见[发布记录](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261113151338-GitHubPages发布.md)。
+
 ## 本地启动
 
 需要 Node.js 20.19+（本次使用 20.20.x）。

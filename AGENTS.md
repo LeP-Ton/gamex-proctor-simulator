@@ -11,3 +11,4 @@
 - 复盘必须从实际种子和输入日志重建，禁止修改原局；正式界面不泄露目标或倒计时。
 - 参数与规则版本集中在 `src/engine/config.ts`。规则变更须更新版本，避免混排成绩。
 - 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
+- GitHub Pages 由 `.github/workflows/pages.yml` 对 main 的运行相关变更自动测试、构建和部署；GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容仓库子路径。
