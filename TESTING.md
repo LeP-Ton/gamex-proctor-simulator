@@ -30,6 +30,10 @@
 - 原始 JSON 结果保存在 `artifacts/browser-report.json`、`artifacts/stress-report.json` 和 `artifacts/realtime-report.json`，对应截图同目录保存；可使用 README 中的命令重新生成。
 - 交付前补充检查：普通生产入口没有 `__proctor` 调试接口；显式调试 API 无法将辅助标记关闭，固定场景时间冻结。普通生产入口六屏实机截图已保存，结果见 `artifacts/capture-report.json`。
 
+## GitHub Pages 发布追加验证
+
+GitHub Pages 追加验证（2026-11-13）：公开仓库已获用户明确授权，源码与原提交标识已同步；云端任务 `43386579467` 的安装、核心测试、构建和部署全部通过。页面及三个静态资源返回 200，真实线上浏览器检查通过，证据位于 `artifacts/github-pages/`。首次云端安装因锁文件内网镜像失败，已在 `0a67e11` 改用同版本、同校验值的公开 npm 下载地址。
+
 ## 尚未验证
 
 - 用户人工游戏体验、长期平衡性与大样本玩家观察难度。
