@@ -9,7 +9,9 @@ const realtime = process.argv.includes("--realtime");
 const capture = process.argv.includes("--capture");
 const port = capture ? 4193 : realtime ? 4183 : 4173;
 const base = process.env.PROCTOR_TEST_URL || `http://127.0.0.1:${port}`;
-const artifacts = fileURLToPath(new URL("../artifacts/", import.meta.url));
+const artifacts =
+  process.env.PROCTOR_ARTIFACT_DIR ||
+  fileURLToPath(new URL("../artifacts/", import.meta.url));
 await mkdir(artifacts, { recursive: true });
 const results = [];
 const errors = [];
@@ -68,8 +70,19 @@ try {
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(m.text());
   });
-  const shot = async (name) =>
-    page.screenshot({ path: `${artifacts}${name}.png`, fullPage: true });
+  const shot = async (name) => {
+    // 等待布局后的实际重绘，避免 resize 后截到旧的合成分块。
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    return page.screenshot({
+      path: `${artifacts}${name}.png`,
+      fullPage: false,
+    });
+  };
   const worldClick = async (scene, x, y) => {
     const canvas = page.locator(`canvas[data-camera="${scene}"]`);
     const box = await canvas.boundingBox();
@@ -111,6 +124,42 @@ try {
     await page.waitForTimeout(100);
     assert.equal(await page.evaluate(() => window.__proctor.game.tick), tick);
     check("调试 API 强制辅助标记，固定场景时钟冻结");
+    await page.evaluate(() => {
+      const q = window.__proctor;
+      q.advanceTo(q.game.plan.config.duration);
+      const old = structuredClone(q.store.data.recent[0]);
+      old.id = "legacy-check";
+      delete old.config.visualVersion;
+      delete old.plan.config.visualVersion;
+      q.store.data.recent.push(old);
+      q.store.persist();
+    });
+    await page.getByRole("button", { name: "返回准备", exact: true }).click();
+    await page.getByRole("button", { name: "最近十局", exact: true }).click();
+    await page.locator(".history-row").filter({ hasText: "经典画面" }).click();
+    assert.match(
+      await page.locator(".results-heading .modal-intro").textContent(),
+      /经典画面/,
+    );
+    const oldData = await page.evaluate(() =>
+      JSON.stringify(window.__proctor.store.data),
+    );
+    await page.locator("#review-slider").press("End");
+    await shot("legacy-review");
+    assert.equal(
+      await page.evaluate(() => JSON.stringify(window.__proctor.store.data)),
+      oldData,
+    );
+    await page
+      .getByRole("button", { name: "同种子再挑战", exact: true })
+      .click();
+    assert.equal(
+      await page.evaluate(
+        () => window.__proctor.game.plan.config.visualVersion,
+      ),
+      "cctv-2",
+    );
+    check("旧记录经典复盘只读，新开局使用监控画面");
   } else if (realtime) {
     await page.goto(base);
     await page.bringToFront();
@@ -124,7 +173,7 @@ try {
       await page.locator("#session-state").textContent(),
       await page.locator("#pause-title").textContent(),
     );
-    await worldClick(3, 254, 254);
+    await worldClick(3, 252.4, 251.5);
     assert.equal(await page.locator("#caught-value").textContent(), "01");
     check("真实时钟首个事件直接举报", "正式模式，没有时间快进或目标提示");
     const interval = setInterval(async () => {
@@ -185,7 +234,7 @@ try {
               (o) =>
                 o.actorId === e.actors[0] &&
                 o.shape.kind === "ellipse" &&
-                o.shape.rx === 12,
+                o.shape.role === "head",
             ).shape;
           return { ...e, head };
         },
@@ -205,7 +254,7 @@ try {
               (o) =>
                 o.actorId === actorId &&
                 o.shape.kind === "ellipse" &&
-                o.shape.rx === 12,
+                o.shape.role === "head",
             ).shape,
         { scene, actorId },
       );

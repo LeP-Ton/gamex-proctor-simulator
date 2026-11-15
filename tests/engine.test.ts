@@ -6,6 +6,7 @@ import {
   makeConfig,
   PRESET_SEEDS,
   seconds,
+  VISUAL_VERSION,
 } from "../src/engine/config.js";
 import type { Difficulty } from "../src/engine/config.js";
 import { buildPlan, validatePlan } from "../src/engine/schedule.js";
@@ -15,6 +16,7 @@ import { buildTutorialPlan } from "../src/engine/tutorial.js";
 import {
   clientToWorld,
   contains,
+  projectPoint,
   fitWorld,
   pick,
   pickWithProtection,
@@ -241,7 +243,8 @@ test("可见性拾取遵守逆绘制顺序，家具阻挡人物，普通试卷�
   );
   const { ops } = sceneGeometry(plan, 0, 0);
   const pos = seatPosition(plan.people[0]);
-  assert.equal(pick(ops, pos.x + 30, pos.y + 31), null);
+  const deskPoint = projectPoint(0, pos.x + 30, pos.y + 31);
+  assert.equal(pick(ops, deskPoint.x, deskPoint.y), null);
   for (const size of [
     { width: 440, height: 256 },
     { width: 900, height: 525 },
@@ -293,13 +296,21 @@ test("五类事件两个变体都有区别于正常与准备的物品或组合�
       if (kind === "peeking") {
         const person = p.people[e.actors[0]];
         const pos = seatPosition(person);
+        const head = active.find(
+          (o) => o.shape.kind === "ellipse" && o.shape.role === "head",
+        )!.shape;
+        const before = prepare.find(
+          (o) => o.shape.kind === "ellipse" && o.shape.role === "head",
+        )!.shape;
+        assert.ok(head.kind === "ellipse" && before.kind === "ellipse");
+        const neighbor = seatPosition(p.people[e.relatedId!]);
+        const paper = projectPoint(e.scene, neighbor.x, neighbor.y + 20);
         assert.ok(
-          active.some(
-            (o) =>
-              o.shape.kind === "ellipse" &&
-              o.shape.rx === 12 &&
-              Math.abs(o.shape.x - pos.x) === 28,
-          ),
+          Math.abs(head.x - paper.x) < Math.abs(before.x - paper.x),
+          "窥卷必须实际向邻卷探身",
+        );
+        assert.ok(
+          Math.abs(head.x - projectPoint(e.scene, pos.x, pos.y).x) > 18,
         );
       } else {
         const color = kind === "device" ? "#62c9d2" : "#f1ca61";
@@ -412,6 +423,7 @@ test("本地记录最近十局，最佳按种子、难度、时长、版本、�
     { ruleVersion: "next" },
     { layout: "practice" as const },
     { debug: true },
+    { visualVersion: "other-visual-version" },
   ]) {
     assert.notEqual(
       conditionKey({ ...run, config: { ...run.config, ...change } }),
@@ -432,6 +444,67 @@ test("本地记录最近十局，最佳按种子、难度、时长、版本、�
   });
   assert.equal(broken.available, false);
   assert.doesNotThrow(() => broken.saveRun(run));
+});
+
+test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子事件安排", () => {
+  const config = makeConfig("visual-version-regression", "standard");
+  assert.equal(config.visualVersion, VISUAL_VERSION);
+  assert.equal(VISUAL_VERSION, "cctv-2");
+  const legacyConfig = { ...config };
+  delete legacyConfig.visualVersion;
+  const legacyPlan = buildPlan(legacyConfig);
+  const currentPlan = buildPlan(config);
+  const alternatePlan = buildPlan({
+    ...config,
+    visualVersion: "other-visual-version",
+  });
+  for (const candidate of [currentPlan, alternatePlan]) {
+    assert.deepEqual(candidate.events, legacyPlan.events);
+    assert.deepEqual(candidate.visits, legacyPlan.visits);
+    assert.deepEqual(candidate.people, legacyPlan.people);
+  }
+
+  const legacyRun: RunRecord = {
+    id: "legacy-visual",
+    date: "2026-11-13T05:00:00.000Z",
+    config: legacyConfig,
+    plan: legacyPlan,
+    score: { ...new Game(legacyPlan).score, total: 850 },
+    eventCount: legacyPlan.events.length,
+    inputs: [],
+    pauses: [],
+  };
+  const legacyKey = `${config.seed}|standard|${config.duration}|${config.ruleVersion}|desktop|normal|exam`;
+  assert.equal(conditionKey(legacyRun), legacyKey);
+  const saved = new Map<string, string>([
+    [
+      "gamex-proctor-v1",
+      JSON.stringify({ best: { [legacyKey]: 900 }, recent: [] }),
+    ],
+  ]);
+  const local = new LocalStore({
+    getItem: (key) => saved.get(key) ?? null,
+    setItem: (key, value) => {
+      saved.set(key, value);
+    },
+  });
+  const currentRun: RunRecord = {
+    ...legacyRun,
+    id: "current-visual",
+    config,
+    plan: currentPlan,
+    score: { ...legacyRun.score, total: 100 },
+  };
+  assert.equal(
+    conditionKey(currentRun),
+    `${legacyKey}|visual:${VISUAL_VERSION}`,
+  );
+  assert.equal(local.saveRun(currentRun), true);
+  assert.equal(local.data.best[legacyKey], 900);
+  assert.equal(local.data.best[conditionKey(currentRun)], 100);
+  assert.equal(local.saveRun(legacyRun), false);
+  assert.equal(local.data.best[legacyKey], 900);
+  assert.equal(legacyRun.config.visualVersion, undefined);
 });
 
 test("渐进教学使用两路、四路、六路真实事件并有并发演示和正常来访", () => {
@@ -458,4 +531,25 @@ test("渐进教学使用两路、四路、六路真实事件并有并发演示�
       assert.ok(pointFor(ops, id));
     }
   assert.ok(tutorial.visits.some((v) => !v.eventId));
+});
+
+test("旧局复盘保留原始画面几何，新投影不改写旧计划", () => {
+  const oldPlan = {
+    ...plan,
+    config: { ...plan.config, visualVersion: undefined },
+  };
+  const before = JSON.stringify(oldPlan);
+  const old = sceneGeometry(oldPlan, 300, 0);
+  const modern = sceneGeometry(plan, 300, 0);
+  assert.notDeepEqual(old.ops, modern.ops);
+  assert.ok(
+    !old.ops.some((o) => o.shape.kind === "ellipse" && o.shape.role === "head"),
+  );
+  assert.ok(
+    modern.ops.some(
+      (o) => o.shape.kind === "ellipse" && o.shape.role === "head",
+    ),
+  );
+  replayAt(oldPlan, [], 900);
+  assert.equal(JSON.stringify(oldPlan), before);
 });

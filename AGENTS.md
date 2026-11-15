@@ -13,3 +13,4 @@
 - 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
 - GitHub Pages 由 `.github/workflows/pages.yml` 对 main 的运行相关变更自动测试、构建和部署；GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容仓库子路径。
 - `.npmrc` 和锁文件使用公开 npm 源，避免把本机内网镜像写入外部构建所需的下载地址。
+- 当前画面为高机位监控仿真，绘制和拾取共用投影后的几何。视觉条件由 `visualVersion` 隔离成绩，不纳入计分事件随机流；旧记录使用冻结的 `legacy-geometry.ts` 复盘。
