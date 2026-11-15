@@ -95,9 +95,134 @@ try {
       },
     });
   };
+  const waitForAssets = () =>
+    page.waitForFunction(
+      () => document.querySelector("#start-button")?.disabled === false,
+    );
+
+  if (!capture && !realtime) {
+    const loadingContext = await browser.newContext();
+    const loadingPage = await loadingContext.newPage();
+    let releaseAssets;
+    const assetGate = new Promise((resolve) => {
+      releaseAssets = resolve;
+    });
+    let requestedAsset;
+    const assetRequested = new Promise((resolve) => {
+      requestedAsset = resolve;
+    });
+    await loadingContext.route("**/assets/photo-3/*.webp", async (route) => {
+      requestedAsset();
+      await assetGate;
+      await route.continue();
+    });
+    try {
+      await loadingPage.goto(`${base}/?debug=1`, {
+        waitUntil: "domcontentloaded",
+      });
+      await loadingPage.locator("#start-button").waitFor();
+      await Promise.race([
+        assetRequested,
+        wait(10000).then(() => {
+          throw new Error("没有请求本地监控素材");
+        }),
+      ]);
+      assert.equal(
+        await loadingPage.locator("#start-button").isDisabled(),
+        true,
+      );
+      assert.equal(
+        await loadingPage.locator("#tutorial-button").isDisabled(),
+        true,
+      );
+      assert.ok(await loadingPage.locator("#asset-loading").isVisible());
+      await loadingPage.evaluate(() => window.__proctor.start());
+      await loadingPage.waitForTimeout(120);
+      assert.deepEqual(
+        await loadingPage.evaluate(() => ({
+          mode: window.__proctor.mode,
+          tick: window.__proctor.game.tick,
+        })),
+        { mode: "idle", tick: 0 },
+      );
+      await loadingPage.screenshot({
+        path: `${artifacts}asset-loading.png`,
+        fullPage: false,
+      });
+      releaseAssets();
+      await loadingPage.waitForFunction(
+        () => !document.querySelector("#start-button").disabled,
+      );
+      assert.equal(
+        await loadingPage.locator("#asset-loading").isVisible(),
+        false,
+      );
+      check("素材尚未解码时禁止开始，考试时钟保持 0；完成载入后开放巡查");
+    } finally {
+      releaseAssets();
+      await loadingContext.close();
+    }
+
+    const retryContext = await browser.newContext();
+    const retryPage = await retryContext.newPage();
+    let rejectedOnce = false;
+    await retryContext.route("**/assets/photo-3/*.webp", async (route) => {
+      if (!rejectedOnce) {
+        rejectedOnce = true;
+        await route.abort("failed");
+      } else await route.continue();
+    });
+    try {
+      await retryPage.goto(`${base}/?debug=1`, {
+        waitUntil: "domcontentloaded",
+      });
+      await retryPage
+        .getByRole("button", { name: "重新载入", exact: true })
+        .waitFor();
+      assert.equal(await retryPage.locator("#start-button").isDisabled(), true);
+      await retryPage.evaluate(() => window.__proctor.start());
+      await retryPage.waitForTimeout(120);
+      assert.deepEqual(
+        await retryPage.evaluate(() => ({
+          mode: window.__proctor.mode,
+          tick: window.__proctor.game.tick,
+        })),
+        { mode: "idle", tick: 0 },
+      );
+      await retryPage.screenshot({
+        path: `${artifacts}asset-load-failure.png`,
+        fullPage: false,
+      });
+      await retryPage
+        .getByRole("button", { name: "最近十局", exact: true })
+        .click();
+      assert.ok(
+        await retryPage
+          .getByRole("heading", { name: "最近十局", exact: true })
+          .isVisible(),
+      );
+      await retryPage
+        .getByRole("button", { name: "关闭面板", exact: true })
+        .click();
+      await retryPage
+        .getByRole("button", { name: "重新载入", exact: true })
+        .click();
+      await retryPage.waitForFunction(
+        () => !document.querySelector("#start-button").disabled,
+      );
+      assert.equal(
+        await retryPage.locator("#asset-loading").isVisible(),
+        false,
+      );
+      check("素材加载失败不开始计时、历史入口可访问，重试后恢复巡查");
+    } finally {
+      await retryContext.close();
+    }
+  }
 
   if (capture) {
     await page.goto(base);
+    await waitForAssets();
     assert.equal(
       await page.evaluate(() => typeof window.__proctor),
       "undefined",
@@ -110,6 +235,7 @@ try {
     await shot("gameplay-1280");
     check("普通生产入口无调试接口，六屏实机截图已保存");
     await page.goto(`${base}/?debug=1`);
+    await waitForAssets();
     await page.evaluate(() => window.__proctor.start({ debug: false }));
     assert.equal(
       await page.evaluate(() => window.__proctor.game.plan.config.debug),
@@ -132,6 +258,11 @@ try {
       delete old.config.visualVersion;
       delete old.plan.config.visualVersion;
       q.store.data.recent.push(old);
+      const monitor = structuredClone(q.store.data.recent[0]);
+      monitor.id = "monitor-check";
+      monitor.config.visualVersion = "cctv-2";
+      monitor.plan.config.visualVersion = "cctv-2";
+      q.store.data.recent.push(monitor);
       q.store.persist();
     });
     await page.getByRole("button", { name: "返回准备", exact: true }).click();
@@ -150,6 +281,22 @@ try {
       await page.evaluate(() => JSON.stringify(window.__proctor.store.data)),
       oldData,
     );
+    await page.getByRole("button", { name: "返回准备", exact: true }).click();
+    await page.getByRole("button", { name: "最近十局", exact: true }).click();
+    await page
+      .locator(".history-row")
+      .filter({ hasText: "监控画面 V2" })
+      .click();
+    assert.match(
+      await page.locator(".results-heading .modal-intro").textContent(),
+      /监控画面 V2/,
+    );
+    await page.locator("#review-slider").press("End");
+    await shot("monitor-v2-review");
+    assert.equal(
+      await page.evaluate(() => JSON.stringify(window.__proctor.store.data)),
+      oldData,
+    );
     await page
       .getByRole("button", { name: "同种子再挑战", exact: true })
       .click();
@@ -157,11 +304,12 @@ try {
       await page.evaluate(
         () => window.__proctor.game.plan.config.visualVersion,
       ),
-      "cctv-2",
+      "photo-3",
     );
-    check("旧记录经典复盘只读，新开局使用监控画面");
+    check("两代旧记录按原画面只读复盘，新开局使用照片质感画面");
   } else if (realtime) {
     await page.goto(base);
+    await waitForAssets();
     await page.bringToFront();
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: "开始巡查", exact: true }).click();
@@ -212,6 +360,7 @@ try {
     await shot("realtime-six-minute-results");
   } else {
     await page.goto(`${base}/?debug=1`);
+    await waitForAssets();
     assert.equal(await page.locator("canvas[data-camera]").count(), 6);
     await page.getByRole("button", { name: "开始巡查", exact: true }).click();
     const choose = async (kind, variant) => {
@@ -228,15 +377,15 @@ try {
             e = q.game.plan.events.find(
               (e) => e.kind === kind && e.variant === variant,
             );
-          const head = q
+          const person = q
             .geometry(e.scene)
             .ops.find(
               (o) =>
                 o.actorId === e.actors[0] &&
-                o.shape.kind === "ellipse" &&
-                o.shape.role === "head",
+                o.shape.kind === "image" &&
+                o.shape.role === "person",
             ).shape;
-          return { ...e, head };
+          return { ...e, head: person.head };
         },
         { kind, variant },
       );
@@ -253,9 +402,9 @@ try {
             .ops.find(
               (o) =>
                 o.actorId === actorId &&
-                o.shape.kind === "ellipse" &&
-                o.shape.role === "head",
-            ).shape,
+                o.shape.kind === "image" &&
+                o.shape.role === "person",
+            ).shape.head,
         { scene, actorId },
       );
       await worldClick(scene, p.x, p.y);
@@ -495,6 +644,10 @@ try {
     );
     check("高压难度与自定义中文种子可启动");
     await page.setViewportSize({ width: 600, height: 900 });
+    // 等待浏览器分派 resize，避免在布局条件更新前读取旧值。
+    await page.waitForFunction(
+      () => window.__proctor.game.plan.config.layout === "practice",
+    );
     assert.equal(
       await page.evaluate(() => window.__proctor.game.plan.config.layout),
       "practice",

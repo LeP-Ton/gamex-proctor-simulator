@@ -2,6 +2,44 @@ import { fitWorld, sceneGeometry, WORLD_H, WORLD_W } from "./geometry.js";
 import type { DrawOp } from "./geometry.js";
 import type { Game } from "../engine/game.js";
 import { VISUAL_VERSION } from "../engine/config.js";
+import { PHOTO_ASSETS, photoFrame } from "./photo-assets.js";
+import type { PhotoAssetId } from "./photo-assets.js";
+
+const photoImages = new Map<PhotoAssetId, HTMLImageElement>();
+const photoLoads = new Map<PhotoAssetId, Promise<void>>();
+let loadingPhotos: Promise<void> | undefined;
+export const photoAssetsReady = () =>
+  photoImages.size === Object.keys(PHOTO_ASSETS).length;
+export function loadPhotoAssets(): Promise<void> {
+  if (photoAssetsReady()) return Promise.resolve();
+  if (loadingPhotos) return loadingPhotos;
+  loadingPhotos = Promise.all(
+    (Object.keys(PHOTO_ASSETS) as PhotoAssetId[]).map(async (id) => {
+      if (photoImages.has(id)) return;
+      const pending = photoLoads.get(id);
+      if (pending) return pending;
+      const image = new Image();
+      image.src = `${import.meta.env.BASE_URL}${PHOTO_ASSETS[id].url}`;
+      const decoding = image
+        .decode()
+        .then(() => {
+          photoImages.set(id, image);
+        })
+        .finally(() => {
+          photoLoads.delete(id);
+        });
+      photoLoads.set(id, decoding);
+      return decoding;
+    }),
+  )
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      // 保留已解码图片，只重试失败项；考试在全部素材完成前保持未开始。
+      loadingPhotos = undefined;
+      throw error;
+    });
+  return loadingPhotos;
+}
 
 const roomFrames = new WeakMap<
   HTMLCanvasElement,
@@ -9,7 +47,7 @@ const roomFrames = new WeakMap<
 >();
 let sensorTexture: HTMLCanvasElement | undefined;
 
-function sensorFinish(ctx: CanvasRenderingContext2D) {
+function sensorFinish(ctx: CanvasRenderingContext2D, photographic = false) {
   if (!sensorTexture) {
     sensorTexture = document.createElement("canvas");
     sensorTexture.width = sensorTexture.height = 96;
@@ -26,13 +64,13 @@ function sensorFinish(ctx: CanvasRenderingContext2D) {
   }
   // 轻微固定传感器颗粒与边缘照度下降；不模糊手部和计分物品。
   ctx.save();
-  ctx.globalAlpha = 0.035;
+  ctx.globalAlpha = photographic ? 0.014 : 0.035;
   ctx.fillStyle = ctx.createPattern(sensorTexture, "repeat")!;
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   ctx.globalAlpha = 1;
   const edge = ctx.createRadialGradient(300, 165, 150, 300, 165, 390);
   edge.addColorStop(0, "#14201900");
-  edge.addColorStop(1, "#12201933");
+  edge.addColorStop(1, photographic ? "#11161919" : "#12201933");
   ctx.fillStyle = edge;
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   ctx.restore();
@@ -47,6 +85,55 @@ export function drawOps(ctx: CanvasRenderingContext2D, ops: readonly DrawOp[]) {
     ctx.lineWidth = op.width ?? 1.5;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
+    if (s.kind === "image") {
+      const image = photoImages.get(s.asset);
+      if (!image) continue;
+      const frame = photoFrame(s);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      if (s.clip) {
+        const [x, y, w, h] = s.clip;
+        ctx.beginPath();
+        ctx.rect(s.x + x * s.w, s.y + y * s.h, w * s.w, h * s.h);
+        ctx.clip();
+      }
+      if (s.flipX) {
+        ctx.translate(s.x + s.w, s.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          image,
+          frame.x,
+          frame.y,
+          frame.w,
+          frame.h,
+          0,
+          0,
+          s.w,
+          s.h,
+        );
+      } else
+        ctx.drawImage(
+          image,
+          frame.x,
+          frame.y,
+          frame.w,
+          frame.h,
+          s.x,
+          s.y,
+          s.w,
+          s.h,
+        );
+      ctx.restore();
+      continue;
+    }
+    if (op.gradient) {
+      const g = op.gradient;
+      const paint = ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1);
+      for (const [offset, color] of g.stops) paint.addColorStop(offset, color);
+      if (op.fill) ctx.fillStyle = paint;
+      if (op.stroke) ctx.strokeStyle = paint;
+    }
     if (s.kind === "text") {
       ctx.font = `${s.size}px "PingFang SC", "Microsoft YaHei", sans-serif`;
       ctx.textAlign = s.align ?? "left";
@@ -101,6 +188,8 @@ export function renderCamera(
     fit.offsetY * pixelY,
   );
   ctx.clearRect(0, 0, WORLD_W, WORLD_H);
+  if (game.plan.config.visualVersion === VISUAL_VERSION && !photoAssetsReady())
+    return [];
   const { ops, actors, backgroundCount } = sceneGeometry(
     game.plan,
     game.tick,
@@ -121,7 +210,9 @@ export function renderCamera(
   }
   ctx.drawImage(room.image, 0, 0, WORLD_W, WORLD_H);
   drawOps(ctx, ops.slice(backgroundCount));
-  if (game.plan.config.visualVersion === VISUAL_VERSION) sensorFinish(ctx);
+  if (game.plan.config.visualVersion === VISUAL_VERSION)
+    sensorFinish(ctx, true);
+  else if (game.plan.config.visualVersion === "cctv-2") sensorFinish(ctx);
   const highlight = reviewId ?? hoverId;
   if (highlight !== null) {
     const a = actors.find((v) => v.person.id === highlight);
