@@ -10,13 +10,13 @@
 
 在线试玩：**[打开监考模拟器](https://lep-ton.github.io/gamex-proctor-simulator/)**。
 
-源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；2026-11-15 已更新监控仿真画面。
+源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；2026-11-15 已更新 `photo-3` 照片质感画面。
 
 发布配置位于 `.github/workflows/pages.yml`：main 的代码、资源、测试或构建配置更新会先运行核心测试，再构建 `dist/` 并部署；也可手动运行工作流。纯文档更新不重复部署。
 
 `vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
 
-首次发布见[发布记录](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261113151338-GitHubPages发布.md)；当前版本见[监控视觉重构与线上验证](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261115214023-监控视觉重构.md)和[成功的部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43721118625)。
+首次发布见[发布记录](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261113151338-GitHubPages发布.md)；当前版本见[照片质感返修与线上验证](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261115230100-照片质感返修.md)和[成功的部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43728511109)。素材与生成提示词见[本地素材说明](public/assets/photo-3/README.md)。
 
 ## 本地启动
 
