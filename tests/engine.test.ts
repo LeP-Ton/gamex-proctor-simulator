@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
 import {
   BALANCE,
   DIFFICULTIES,
@@ -23,6 +24,8 @@ import {
   sceneGeometry,
 } from "../src/render/geometry.js";
 import type { DrawOp } from "../src/render/geometry.js";
+import { sceneGeometry as monitorGeometry } from "../src/render/monitor-geometry.js";
+import { containsPhoto, photoHead } from "../src/render/photo-assets.js";
 import { LocalStore, conditionKey } from "../src/storage.js";
 import type { Plan, RunRecord } from "../src/engine/types.js";
 
@@ -35,16 +38,18 @@ function pointFor(
   for (const op of ops.filter((o) => o.actorId === actorId)) {
     const s = op.shape;
     const p =
-      s.kind === "rect"
-        ? { x: s.x + s.w / 2, y: s.y + s.h / 2 }
-        : s.kind === "ellipse"
-          ? { x: s.x, y: s.y }
-          : s.kind === "poly" || s.kind === "line"
-            ? {
-                x: (s.points[0] + s.points[2]) / 2,
-                y: (s.points[1] + s.points[3]) / 2,
-              }
-            : undefined;
+      s.kind === "image"
+        ? (s.head ?? photoHead(s))
+        : s.kind === "rect"
+          ? { x: s.x + s.w / 2, y: s.y + s.h / 2 }
+          : s.kind === "ellipse"
+            ? { x: s.x, y: s.y }
+            : s.kind === "poly" || s.kind === "line"
+              ? {
+                  x: (s.points[0] + s.points[2]) / 2,
+                  y: (s.points[1] + s.points[3]) / 2,
+                }
+              : undefined;
     if (p && pick(ops, p.x, p.y) === actorId) return p;
   }
 }
@@ -296,13 +301,17 @@ test("五类事件两个变体都有区别于正常与准备的物品或组合�
       if (kind === "peeking") {
         const person = p.people[e.actors[0]];
         const pos = seatPosition(person);
-        const head = active.find(
-          (o) => o.shape.kind === "ellipse" && o.shape.role === "head",
+        const activePerson = active.find(
+          (o) => o.shape.kind === "image" && o.shape.role === "person",
         )!.shape;
-        const before = prepare.find(
-          (o) => o.shape.kind === "ellipse" && o.shape.role === "head",
+        const beforePerson = prepare.find(
+          (o) => o.shape.kind === "image" && o.shape.role === "person",
         )!.shape;
-        assert.ok(head.kind === "ellipse" && before.kind === "ellipse");
+        assert.ok(
+          activePerson.kind === "image" && beforePerson.kind === "image",
+        );
+        const head = activePerson.head ?? photoHead(activePerson);
+        const before = beforePerson.head ?? photoHead(beforePerson);
         const neighbor = seatPosition(p.people[e.relatedId!]);
         const paper = projectPoint(e.scene, neighbor.x, neighbor.y + 20);
         assert.ok(
@@ -321,6 +330,34 @@ test("五类事件两个变体都有区别于正常与准备的物品或组合�
         assert.ok(!prepare.some((o) => o.fill === color));
       }
     }
+});
+
+test("照片人物的透明边缘不能举报，实际头部像素与左右翻转均可拾取", () => {
+  for (const flipX of [false, true]) {
+    const image: DrawOp = {
+      shape: {
+        kind: "image",
+        asset: "people",
+        frame: 0,
+        x: 80,
+        y: 40,
+        w: 70,
+        h: 130,
+        flipX,
+        role: "person",
+      },
+      actorId: 5,
+    };
+    assert.ok(image.shape.kind === "image");
+    const head = photoHead(image.shape);
+    assert.ok(containsPhoto(image.shape, head.x, head.y));
+    assert.ok(contains(image, head.x, head.y));
+    assert.equal(pick([image], head.x, head.y), 5);
+    assert.equal(containsPhoto(image.shape, 80.1, 40.1), false);
+    assert.equal(contains(image, 80.1, 40.1), false);
+    assert.equal(pick([image], 80.1, 40.1), null);
+    assert.equal(pick([image], 79, head.y), null);
+  }
 });
 
 test("物品收起后的原位置重复输入也受保护，其他可见人物优先且保护严格到期", () => {
@@ -449,16 +486,17 @@ test("本地记录最近十局，最佳按种子、难度、时长、版本、�
 test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子事件安排", () => {
   const config = makeConfig("visual-version-regression", "standard");
   assert.equal(config.visualVersion, VISUAL_VERSION);
-  assert.equal(VISUAL_VERSION, "cctv-2");
+  assert.equal(VISUAL_VERSION, "photo-3");
   const legacyConfig = { ...config };
   delete legacyConfig.visualVersion;
   const legacyPlan = buildPlan(legacyConfig);
   const currentPlan = buildPlan(config);
+  const monitorPlan = buildPlan({ ...config, visualVersion: "cctv-2" });
   const alternatePlan = buildPlan({
     ...config,
     visualVersion: "other-visual-version",
   });
-  for (const candidate of [currentPlan, alternatePlan]) {
+  for (const candidate of [currentPlan, monitorPlan, alternatePlan]) {
     assert.deepEqual(candidate.events, legacyPlan.events);
     assert.deepEqual(candidate.visits, legacyPlan.visits);
     assert.deepEqual(candidate.people, legacyPlan.people);
@@ -475,11 +513,15 @@ test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子�
     pauses: [],
   };
   const legacyKey = `${config.seed}|standard|${config.duration}|${config.ruleVersion}|desktop|normal|exam`;
+  const monitorKey = `${legacyKey}|visual:cctv-2`;
   assert.equal(conditionKey(legacyRun), legacyKey);
   const saved = new Map<string, string>([
     [
       "gamex-proctor-v1",
-      JSON.stringify({ best: { [legacyKey]: 900 }, recent: [] }),
+      JSON.stringify({
+        best: { [legacyKey]: 900, [monitorKey]: 800 },
+        recent: [],
+      }),
     ],
   ]);
   const local = new LocalStore({
@@ -501,10 +543,34 @@ test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子�
   );
   assert.equal(local.saveRun(currentRun), true);
   assert.equal(local.data.best[legacyKey], 900);
+  assert.equal(local.data.best[monitorKey], 800);
   assert.equal(local.data.best[conditionKey(currentRun)], 100);
   assert.equal(local.saveRun(legacyRun), false);
   assert.equal(local.data.best[legacyKey], 900);
+  assert.equal(local.data.best[monitorKey], 800);
   assert.equal(legacyRun.config.visualVersion, undefined);
+});
+
+test("第二版监控记录继续使用冻结几何，第三版不改写旧局与命中条件", () => {
+  const oldPlan = buildPlan({
+    ...makeConfig("monitor-compatibility"),
+    visualVersion: "cctv-2",
+  });
+  const original = JSON.stringify(oldPlan);
+  for (const tick of [0, 300, 1800, 7199])
+    for (let scene = 0; scene < 6; scene++) {
+      const old = sceneGeometry(oldPlan, tick, scene);
+      assert.ok(
+        isDeepStrictEqual(old, monitorGeometry(oldPlan, tick, scene)),
+        `第二版画面必须与冻结版本完全一致：tick ${tick} / scene ${scene}`,
+      );
+      for (const actor of old.actors) {
+        const point = pointFor(old.ops, actor.person.id);
+        assert.ok(point, `第二版可见人物 ${actor.person.id} 必须仍可点击`);
+      }
+    }
+  replayAt(oldPlan, [], 1200);
+  assert.equal(JSON.stringify(oldPlan), original);
 });
 
 test("渐进教学使用两路、四路、六路真实事件并有并发演示和正常来访", () => {
@@ -547,8 +613,14 @@ test("旧局复盘保留原始画面几何，新投影不改写旧计划", () =>
   );
   assert.ok(
     modern.ops.some(
+      (o) => o.shape.kind === "image" && o.shape.role === "person",
+    ),
+  );
+  assert.ok(
+    !modern.ops.some(
       (o) => o.shape.kind === "ellipse" && o.shape.role === "head",
     ),
+    "照片人物不能通过隐形头部椭圆扩大命中",
   );
   replayAt(oldPlan, [], 900);
   assert.equal(JSON.stringify(oldPlan), before);

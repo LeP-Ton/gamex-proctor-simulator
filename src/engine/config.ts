@@ -1,5 +1,5 @@
 export const RULE_VERSION = "1.0.0";
-export const VISUAL_VERSION = "cctv-2";
+export const VISUAL_VERSION = "photo-3";
 export const TICK_RATE = 20;
 export const msToTicks = (ms: number) => Math.round((ms * TICK_RATE) / 1000);
 export const seconds = (s: number) => Math.round(s * TICK_RATE);

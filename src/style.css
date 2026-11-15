@@ -17,6 +17,8 @@
   --soft: #a6b5b8;
   --danger: #e7a09a;
 }
+
+
 * {
   box-sizing: border-box;
 }
@@ -3447,4 +3449,52 @@ kbd {
   .has-focus .featured .camera-osd {
     font-size: 10px;
   }
+}
+
+/* 素材未解码时保持准备状态，避免玩家在空画面中消耗考试时间。 */
+.asset-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: #c3ced4;
+  background: #171e25;
+  text-align: center;
+}
+.asset-loading[hidden],
+.asset-loading button[hidden] {
+  display: none;
+}
+.asset-loading strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+.asset-loading p {
+  margin: 0;
+  max-width: 360px;
+  color: #8b9ca7;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.asset-loading-indicator {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #3b4c58;
+  border-top-color: #9bb4c4;
+  border-radius: 50%;
+  animation: asset-loading-turn 0.8s linear infinite;
+}
+.asset-loading.load-failed .asset-loading-indicator {
+  display: none;
+}
+@keyframes asset-loading-turn {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .asset-loading-indicator { animation: none; }
 }
