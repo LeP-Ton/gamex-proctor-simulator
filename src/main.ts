@@ -7,6 +7,7 @@ import {
   makeConfig,
   PRESET_SEEDS,
   RULE_VERSION,
+  VISUAL_VERSION,
   seconds,
   TICK_RATE,
 } from "./engine/config.js";
@@ -51,8 +52,9 @@ const fmt = (tick: number) =>
     .padStart(2, "0")}:${Math.floor((tick / TICK_RATE) % 60)
     .toString()
     .padStart(2, "0")}`;
+// 固定模拟考试日使同种子复盘的画面日期保持一致。
 const timestamp = (tick: number) =>
-  `09:${Math.floor(tick / TICK_RATE / 60)
+  `模拟 2026-06-07 09:${Math.floor(tick / TICK_RATE / 60)
     .toString()
     .padStart(2, "0")}:${Math.floor((tick / TICK_RATE) % 60)
     .toString()
@@ -84,40 +86,41 @@ const protectedGeometry: Array<DrawOp[] | undefined> = Array(6).fill(undefined);
 
 $("#app").innerHTML = `
   <aside class="sidebar" aria-label="主要导航">
-    <a class="brand" href="#" aria-label="GameX 首页"><span>G<span class="brand-x">X</span></span></a>
+    <a class="brand" href="#" aria-label="GameX 首页">${icon("monitor", 23)}<span>考务监控<span class="brand-x">巡查客户端</span></span></a>
     <div class="nav-items">
-      <button class="nav-button active" id="nav-monitor" title="监控中心" aria-label="监控中心">${icon("monitor", 23)}<span>巡查</span></button>
-      <button class="nav-button" id="nav-rules" title="规则手册" aria-label="规则手册">${icon("book", 22)}<span>手册</span></button>
-      <button class="nav-button" id="nav-history" title="最近十局" aria-label="最近十局">${icon("history", 22)}<span>记录</span></button>
+      <button class="nav-button active" id="nav-monitor" title="监控中心" aria-label="监控中心">${icon("monitor", 23)}<span>实时预览</span></button>
+      <button class="nav-button" id="nav-rules" title="规则手册" aria-label="规则手册">${icon("book", 22)}<span>巡查规程</span></button>
+      <button class="nav-button" id="nav-history" title="最近十局" aria-label="最近十局">${icon("history", 22)}<span>事件记录</span></button>
     </div>
-    <button class="nav-button settings-nav" id="nav-settings" title="设置" aria-label="设置">${icon("settings", 22)}<span>设置</span></button>
-    <div class="labx">LAB<span>X</span><small>独立游戏实验室</small></div>
+    <section class="device-tree" aria-label="监控资源列表"><header>监控资源<span>6 / 6</span></header><div class="device-group"><span>▾ 教学楼</span><small>在线</small></div>${CAMERAS.map((c, i) => `<div class="device-entry"><i></i><span>CH${String(i + 1).padStart(2, "0")}</span><strong>${c.name}</strong></div>`).join("")}<div class="device-group public-note">录像方式：模拟实时</div></section>
+    <button class="nav-button settings-nav" id="nav-settings" title="设置" aria-label="设置">${icon("settings", 22)}<span>系统设置</span></button>
+    <div class="labx">本地巡查终端<small>GameX · LabX</small></div>
   </aside>
   <main class="workspace">
     <header class="page-header">
-      <div><div class="eyebrow">GAMEX <span>/</span> 监考模拟器</div><h1>考场视频巡查系统<span class="version">V1.0</span></h1></div>
-      <div class="header-tools"><span class="online"><i></i> 本地系统已就绪</span><span class="tool-divider"></span><button class="icon-button" id="sound-toggle" aria-label="切换声音" title="切换声音"></button><button class="icon-button" id="help-button" aria-label="查看操作说明" title="查看操作说明">${icon("help")}</button></div>
+      <div><div class="eyebrow">实时监控 <span>›</span> 标准化考场 <span>›</span> 多画面巡查</div><h1>考场视频巡查系统<span class="version">训练版 V1.0</span></h1></div>
+      <div class="header-tools"><span class="online"><i></i> 视频通道 6 / 6 在线</span><span class="tool-divider"></span><button class="icon-button" id="sound-toggle" aria-label="切换声音" title="切换声音"></button><button class="icon-button" id="help-button" aria-label="查看操作说明" title="查看操作说明">${icon("help")}</button></div>
     </header>
     <section class="session-bar" aria-label="本局状态">
-      <div class="time-stat"><span class="stat-label">${icon("clock", 15)} 剩余时间</span><strong id="time-value">06:00</strong><div class="time-track"><i id="time-progress"></i></div></div>
-      <div class="score-stat"><span class="stat-label">本局得分</span><strong id="score-value">0000</strong></div>
-      <div class="combo-stat"><span class="stat-label">连续发现</span><strong id="combo-value">—<small>COMBO</small></strong></div>
-      <div class="count-stats"><span><i class="count-dot good"></i>抓到 <b id="caught-value">00</b></span><span><i class="count-dot muted"></i>漏查 <b id="missed-value">00</b></span><span><i class="count-dot bad"></i>误报 <b id="false-value">00</b></span></div>
+      <div class="time-stat"><span class="stat-label">${icon("clock", 15)} 巡查剩余</span><strong id="time-value">06:00</strong><div class="time-track"><i id="time-progress"></i></div></div>
+      <div class="score-stat"><span class="stat-label">巡查评分</span><strong id="score-value">0000</strong></div>
+      <div class="combo-stat"><span class="stat-label">连续确认</span><strong id="combo-value">—<small>连击</small></strong></div>
+      <div class="count-stats"><span><i class="count-dot good"></i>已确认 <b id="caught-value">00</b></span><span><i class="count-dot muted"></i>未检出 <b id="missed-value">00</b></span><span><i class="count-dot bad"></i>误报 <b id="false-value">00</b></span></div>
       <div class="session-tools"><span class="session-state" id="session-state">${icon("shield", 15)} 等待开始</span><button class="button secondary pause-button" id="pause-button" disabled>${icon("pause", 15)} 暂停</button></div>
     </section>
     <section class="briefing" id="briefing">
-      <div class="briefing-copy"><span class="section-tag">观察 · 预判 · 准确举报</span><h2>每一个小动作，<br class="small-break">都值得多看一眼。</h2><p>六路画面，48 名考生。守住这六分钟的公平。</p></div>
+      <div class="briefing-copy"><span class="section-tag">巡查任务</span><h2>标准化考场 · 模拟考试</h2><p>六路同步预览 / 48 名考生 / 巡查时长 06:00</p></div>
       <div class="launch-controls"><div class="condition-row"><button class="condition-control" id="difficulty-control">常规 ${icon("chevron", 13)}</button><button class="condition-control seed-control" id="seed-control">${icon("shuffle", 14)} <span id="seed-title"></span>${icon("chevron", 13)}</button></div><div class="launch-row"><button class="button secondary" id="tutorial-button">${icon("book", 17)} 新手教学</button><button class="button primary" id="start-button">开始巡查 ${icon("arrow", 17)}</button></div></div>
     </section>
     <div class="game-meta"><div><span class="live-mark"><i></i> <span id="live-label">实时预览</span></span><span class="meta-divider">/</span><span id="view-label">全部机位</span><span class="camera-count">06 路在线</span></div><span id="condition-label"></span></div>
     <section class="board" id="board" aria-label="六路监控">
       <div class="camera-grid" id="camera-grid">
-        ${CAMERAS.map((c, i) => `<article class="camera-card" data-scene="${i}" aria-label="${c.name}监控"><header class="camera-header"><div><span class="camera-number">${String(i + 1).padStart(2, "0")}</span><h2>${c.name}</h2><span class="camera-live">实时</span></div><button class="expand-button" data-expand="${i}" aria-label="放大${c.name}" title="放大 / 快捷键 ${i + 1}">${icon("expand", 15)}</button></header><div class="canvas-wrap"><canvas data-camera="${i}" aria-label="${c.name}，点击可见人物或物品举报" tabindex="0"></canvas><span class="camera-code">${c.code}</span><span class="recording"><i></i> REC</span><span class="hover-label"></span><div class="inactive-camera">${icon("monitor", 27)}<span>教学中稍后开放</span></div><div class="cooldown"><span>举报冷却</span></div></div><footer class="camera-footer"><span>${c.area}</span><time>09:00:00</time></footer></article>`).join("")}
+        ${CAMERAS.map((c, i) => `<article class="camera-card" data-scene="${i}" aria-label="${c.name}监控"><header class="camera-header"><div><span class="camera-number">${String(i + 1).padStart(2, "0")}</span><h2>${c.name}</h2><span class="camera-live">实时</span></div><button class="expand-button" data-expand="${i}" aria-label="放大${c.name}" title="放大 / 快捷键 ${i + 1}">${icon("expand", 15)}</button></header><div class="canvas-wrap"><canvas data-camera="${i}" aria-label="${c.name}，点击可见人物或物品举报" tabindex="0"></canvas><span class="camera-code">CH${String(i + 1).padStart(2, "0")}　${c.name}</span><time class="camera-osd">模拟 2026-06-07 09:00:00</time><span class="recording"><i></i> REC 录像</span><span class="hover-label"></span><div class="inactive-camera">${icon("monitor", 27)}<span>教学中稍后开放</span></div><div class="cooldown"><span>举报冷却</span></div></div><footer class="camera-footer"><span>${c.area}</span><span class="stream-label">模拟实时流</span></footer></article>`).join("")}
       </div>
-      <div class="pause-cover" id="pause-cover"><div class="pause-symbol">${icon("pause", 28)}</div><span class="section-tag">所有画面与时钟已暂停</span><h2 id="pause-title">休息一下，再继续观察。</h2><p>暂停期间监控画面已遮住，事件不会向前推进。</p><button class="button primary" id="resume-button">${icon("play", 17)} 继续巡查</button><button class="text-button" id="abandon-button">返回准备页</button></div>
+      <div class="pause-cover" id="pause-cover"><div class="pause-symbol">${icon("pause", 28)}</div><span class="section-tag">所有画面与时钟已暂停</span><h2 id="pause-title">巡查已暂停。</h2><p>暂停期间监控画面已遮住，事件不会向前推进。</p><button class="button primary" id="resume-button">${icon("play", 17)} 继续巡查</button><button class="text-button" id="abandon-button">返回准备页</button></div>
     </section>
     <section class="tutorial-banner" id="tutorial-banner" hidden><div><strong id="tutorial-title"></strong><p id="tutorial-text"></p></div><button class="button secondary" id="skip-tutorial">开始正式考试 ${icon("arrow", 15)}</button></section>
-    <footer class="bottom-bar"><div><span>${icon("target", 14)} 点击人物 / 物品举报</span><span><kbd>1</kbd>—<kbd>6</kbd> 放大</span><span><kbd>空格</kbd> 暂停</span><span><kbd>Esc</kbd> 返回六屏</span></div><span class="bottom-note">观察细节 · 审慎判断 <i></i> RULE ${RULE_VERSION}</span></footer>
+    <footer class="bottom-bar"><div><span>${icon("target", 14)} 点击人物 / 物品举报</span><span><kbd>1</kbd>—<kbd>6</kbd> 放大</span><span><kbd>空格</kbd> 暂停</span><span><kbd>Esc</kbd> 返回六屏</span></div><span class="bottom-note">模拟画面 · 本地运行 <i></i> 规则 ${RULE_VERSION}</span></footer>
   </main><div id="modal-root"></div><div class="notification" id="notification" role="status"></div>`;
 
 const canvases = [
@@ -193,7 +196,7 @@ function updateStats() {
   $("#score-value").textContent =
     s.total === 0 ? "0000" : s.total.toLocaleString("zh-CN");
   $("#combo-value").innerHTML =
-    `${s.combo || "—"}<small>${game.multiplier > 1 ? `×${game.multiplier.toFixed(1)}` : "COMBO"}</small>`;
+    `${s.combo || "—"}<small>${game.multiplier > 1 ? `×${game.multiplier.toFixed(1)}` : "连击"}</small>`;
   for (const key of ["caught", "missed", "false"] as const)
     $(`#${key}-value`).textContent = String(s[key]).padStart(2, "0");
   const state =
@@ -240,6 +243,7 @@ function start(tutorial = false, reuseConfig?: GameConfig) {
           : "desktop") as GameConfig["layout"],
         debug: debugRequested,
       };
+  config.visualVersion = VISUAL_VERSION;
   game = new Game(tutorial ? buildTutorialPlan() : buildPlan(config));
   protectedGeometry.fill(undefined);
   mode = "playing";
@@ -268,9 +272,7 @@ function pause(reason = "手动暂停") {
   pauseReason = reason;
   $("#board").classList.add("is-paused");
   $("#pause-title").textContent =
-    reason === "切到后台"
-      ? "欢迎回来，考试已安全暂停。"
-      : "休息一下，再继续观察。";
+    reason === "切到后台" ? "终端已恢复，巡查保持暂停。" : "巡查已暂停。";
   updateStats();
 }
 function resume() {
@@ -397,7 +399,7 @@ function closeModal() {
 
 function showSetup(tab: "difficulty" | "seed" = "difficulty") {
   openModal(
-    `<span class="section-tag">巡查准备 / SESSION CONFIG</span><h2>选择你的挑战</h2><p class="modal-intro">同样的种子和规则，拥有同样的计分机会。</p><h3>巡查难度</h3><div class="difficulty-options">${(
+    `<span class="section-tag">巡查准备 / SESSION CONFIG</span><h2>巡查任务配置</h2><p class="modal-intro">同样的种子和规则，拥有同样的计分机会。</p><h3>巡查难度</h3><div class="difficulty-options">${(
       Object.keys(DIFFICULTIES) as Difficulty[]
     )
       .map((key) => {
@@ -447,7 +449,7 @@ function showSetup(tab: "difficulty" | "seed" = "difficulty") {
 
 function showRules() {
   openModal(
-    `<span class="section-tag">值班手册 / FIELD GUIDE</span><h2>先看清，再举报。</h2><p class="modal-intro">直接点击正在违规的人物或可见物品。普通转头、伸展和准备动作不能作为举报依据。</p><div class="rules-grid">${Object.entries(
+    `<span class="section-tag">值班手册 / FIELD GUIDE</span><h2>巡查判定规范</h2><p class="modal-intro">直接点击正在违规的人物或可见物品。普通转头、伸展和准备动作不能作为举报依据。</p><div class="rules-grid">${Object.entries(
       CHEATS,
     )
       .map(
@@ -464,7 +466,7 @@ function showRules() {
 }
 function showSettings() {
   openModal(
-    `<span class="section-tag">偏好设置 / PREFERENCES</span><h2>保持适合你的节奏</h2><div class="setting-row"><div><strong>操作反馈音</strong><p>只在开始、举报和结束时播放。没有目标提示音。</p></div><button class="switch ${audio.enabled ? "on" : ""}" id="sound-setting" role="switch" aria-checked="${audio.enabled}" aria-label="操作反馈音"></button></div><label class="input-label" for="volume">反馈音量</label><input id="volume" type="range" min="0" max="1" step="0.05" value="${audio.volume}"/><div class="storage-note">${icon("shield", 21)}<div><strong>数据保存在当前浏览器</strong><p>记录最近十局，最佳成绩按种子、难度、时长、规则版本和布局分别保存。窄屏练习与辅助调试成绩独立标记。</p><small>${store.available ? "本地存储可用" : "当前存储受限，记录仅在内存保留"}</small></div></div><div class="modal-actions"><button class="button primary" id="settings-done">完成</button></div>`,
+    `<span class="section-tag">偏好设置 / PREFERENCES</span><h2>终端偏好设置</h2><div class="setting-row"><div><strong>操作反馈音</strong><p>只在开始、举报和结束时播放。没有目标提示音。</p></div><button class="switch ${audio.enabled ? "on" : ""}" id="sound-setting" role="switch" aria-checked="${audio.enabled}" aria-label="操作反馈音"></button></div><label class="input-label" for="volume">反馈音量</label><input id="volume" type="range" min="0" max="1" step="0.05" value="${audio.volume}"/><div class="storage-note">${icon("shield", 21)}<div><strong>数据保存在当前浏览器</strong><p>记录最近十局，最佳成绩按种子、难度、时长、规则版本和布局分别保存。窄屏练习与辅助调试成绩独立标记。</p><small>${store.available ? "本地存储可用" : "当前存储受限，记录仅在内存保留"}</small></div></div><div class="modal-actions"><button class="button primary" id="settings-done">完成</button></div>`,
   );
   $("#sound-setting").onclick = () => {
     audio.enabled = !audio.enabled;
@@ -481,7 +483,7 @@ function showSettings() {
 }
 function showHistory() {
   openModal(
-    `<span class="section-tag">巡查档案 / RECENT SESSIONS</span><h2>最近十局</h2><p class="modal-intro">每一场观察，都留下进步的线索。</p><div class="history-list">${store.data.recent.length ? store.data.recent.map((r, i) => `<button class="history-row" data-history="${i}"><div><strong>${h(PRESET_SEEDS.find((s) => s.id === r.config.seed)?.name ?? r.config.seed)}</strong><small>${new Date(r.date).toLocaleString("zh-CN")} · ${DIFFICULTIES[r.config.difficulty].name} · ${r.config.layout === "practice" ? "窄屏练习" : r.config.debug ? "辅助调试" : "桌面正式"}</small></div><b>${r.score.total.toLocaleString()}</b>${icon("chevron", 16)}</button>`).join("") : `<div class="empty-state">${icon("history", 36)}<strong>还没有巡查记录</strong><p>完成第一场考试后，在这里回看成绩和真实片段。</p></div>`}</div>`,
+    `<span class="section-tag">巡查档案 / RECENT SESSIONS</span><h2>最近十局</h2><p class="modal-intro">查看已保存的巡查成绩与事件片段。</p><div class="history-list">${store.data.recent.length ? store.data.recent.map((r, i) => `<button class="history-row" data-history="${i}"><div><strong>${h(PRESET_SEEDS.find((s) => s.id === r.config.seed)?.name ?? r.config.seed)}</strong><small>${new Date(r.date).toLocaleString("zh-CN")} · ${DIFFICULTIES[r.config.difficulty].name} · ${r.config.visualVersion === VISUAL_VERSION ? "监控画面" : "经典画面"} · ${r.config.layout === "practice" ? "窄屏练习" : r.config.debug ? "辅助调试" : "桌面正式"}</small></div><b>${r.score.total.toLocaleString()}</b>${icon("chevron", 16)}</button>`).join("") : `<div class="empty-state">${icon("history", 36)}<strong>还没有巡查记录</strong><p>完成第一场考试后，在这里回看成绩和真实片段。</p></div>`}</div>`,
     true,
   );
   document
@@ -499,7 +501,7 @@ function showResults(run: RunRecord, newBest: boolean) {
     (a, b) => a.tick - b.tick || a.id.localeCompare(b.id),
   );
   openModal(
-    `<div class="results-heading"><span class="section-tag">${run.config.tutorial ? "教学完成" : "巡查报告"} / SESSION COMPLETE</span><h2>${run.config.tutorial ? "现在，准备好独立巡查。" : "这一场专注，值得被记录。"}</h2><p class="modal-intro">${DIFFICULTIES[run.config.difficulty].name} · ${h(run.config.seed)} · ${fmt(run.config.duration)}${run.config.layout === "practice" ? " · 窄屏练习" : ""}${run.config.debug ? " · 辅助调试" : ""}</p></div><div class="results-score"><div><span>最终得分</span><strong>${run.score.total.toLocaleString("zh-CN")}</strong>${newBest ? "<em>同条件最佳</em>" : ""}</div><div class="result-metrics"><span>抓到 / 总事件<b>${run.score.caught}<small> / ${run.eventCount}</small></b></span><span>漏查<b>${run.score.missed}</b></span><span>误报<b>${run.score.false}</b></span><span>最高连击<b>${run.score.maxCombo}</b></span><span>命中率<b>${pct(accuracy(run.score))}</b></span><span>检出率<b>${pct(detectionRate(run.score, run.eventCount))}</b></span></div></div><div class="review-heading"><h3>${icon("history", 18)} 事件复盘</h3><span>从本局种子与实际操作重建 · 只读</span></div><div class="review-layout"><div class="review-events"><div class="review-filters"><button class="selected" data-filter="all">全部 ${entries.length}</button><button data-filter="missed">漏查 ${run.score.missed}</button><button data-filter="false">误报 ${run.score.false}</button></div><div class="event-list" id="event-list"></div></div><div class="review-player" id="review-player"><div class="review-camera-title"><strong id="review-camera-title"></strong><span id="review-time"></span></div><canvas id="review-canvas" aria-label="真实事件复盘片段"></canvas><div class="review-controls"><button class="icon-button" id="review-play" aria-label="播放或暂停复盘">${icon("play", 16)}</button><input id="review-slider" aria-label="复盘时间" type="range" step="1"/><span id="review-duration"></span></div><div class="review-explanation"><strong id="review-event-title"></strong><p id="review-explanation"></p><small id="review-phase"></small></div></div></div><div class="results-footer"><div><span>暂停 ${run.pauses.length} 次 · ${Math.round(run.pauses.reduce((a, p) => a + p.durationMs, 0) / 1000)} 秒</span><small>${run.config.tutorial ? "教学成绩不进入正式记录" : `同条件最佳 ${store.data.best[conditionKey(run)]?.toLocaleString() ?? "—"} 分 · ${store.available ? "已保存至本地" : "仅内存保存"}`}</small></div><div class="result-buttons"><button class="button secondary" id="results-home">返回准备</button><button class="button secondary" id="same-seed">${icon("refresh", 15)} 同种子再挑战</button><button class="button primary" id="new-seed">${icon("shuffle", 15)} ${run.config.tutorial ? "开始正式巡查" : "新种子开始"}</button></div></div>`,
+    `<div class="results-heading"><span class="section-tag">${run.config.tutorial ? "教学完成" : "巡查报告"} / SESSION COMPLETE</span><h2>${run.config.tutorial ? "现在，准备好独立巡查。" : "巡查任务已完成"}</h2><p class="modal-intro">${DIFFICULTIES[run.config.difficulty].name} · ${h(run.config.seed)} · ${run.config.visualVersion === VISUAL_VERSION ? "监控画面" : "经典画面"} · ${fmt(run.config.duration)}${run.config.layout === "practice" ? " · 窄屏练习" : ""}${run.config.debug ? " · 辅助调试" : ""}</p></div><div class="results-score"><div><span>最终得分</span><strong>${run.score.total.toLocaleString("zh-CN")}</strong>${newBest ? "<em>同条件最佳</em>" : ""}</div><div class="result-metrics"><span>抓到 / 总事件<b>${run.score.caught}<small> / ${run.eventCount}</small></b></span><span>漏查<b>${run.score.missed}</b></span><span>误报<b>${run.score.false}</b></span><span>最高连击<b>${run.score.maxCombo}</b></span><span>命中率<b>${pct(accuracy(run.score))}</b></span><span>检出率<b>${pct(detectionRate(run.score, run.eventCount))}</b></span></div></div><div class="review-heading"><h3>${icon("history", 18)} 事件复盘</h3><span>从本局种子与实际操作重建 · 只读</span></div><div class="review-layout"><div class="review-events"><div class="review-filters"><button class="selected" data-filter="all">全部 ${entries.length}</button><button data-filter="missed">漏查 ${run.score.missed}</button><button data-filter="false">误报 ${run.score.false}</button></div><div class="event-list" id="event-list"></div></div><div class="review-player" id="review-player"><div class="review-camera-title"><strong id="review-camera-title"></strong><span id="review-time"></span></div><canvas id="review-canvas" aria-label="真实事件复盘片段"></canvas><div class="review-controls"><button class="icon-button" id="review-play" aria-label="播放或暂停复盘">${icon("play", 16)}</button><input id="review-slider" aria-label="复盘时间" type="range" step="1"/><span id="review-duration"></span></div><div class="review-explanation"><strong id="review-event-title"></strong><p id="review-explanation"></p><small id="review-phase"></small></div></div></div><div class="results-footer"><div><span>暂停 ${run.pauses.length} 次 · ${Math.round(run.pauses.reduce((a, p) => a + p.durationMs, 0) / 1000)} 秒</span><small>${run.config.tutorial ? "教学成绩不进入正式记录" : `同条件最佳 ${store.data.best[conditionKey(run)]?.toLocaleString() ?? "—"} 分 · ${store.available ? "已保存至本地" : "仅内存保存"}`}</small></div><div class="result-buttons"><button class="button secondary" id="results-home">返回准备</button><button class="button secondary" id="same-seed">${icon("refresh", 15)} 同种子再挑战</button><button class="button primary" id="new-seed">${icon("shuffle", 15)} ${run.config.tutorial ? "开始正式巡查" : "新种子开始"}</button></div></div>`,
     true,
   );
   $("#results-home").onclick = reset;

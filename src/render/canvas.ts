@@ -1,6 +1,42 @@
 import { fitWorld, sceneGeometry, WORLD_H, WORLD_W } from "./geometry.js";
 import type { DrawOp } from "./geometry.js";
 import type { Game } from "../engine/game.js";
+import { VISUAL_VERSION } from "../engine/config.js";
+
+const roomFrames = new WeakMap<
+  HTMLCanvasElement,
+  { key: string; image: HTMLCanvasElement }
+>();
+let sensorTexture: HTMLCanvasElement | undefined;
+
+function sensorFinish(ctx: CanvasRenderingContext2D) {
+  if (!sensorTexture) {
+    sensorTexture = document.createElement("canvas");
+    sensorTexture.width = sensorTexture.height = 96;
+    const grain = sensorTexture.getContext("2d")!;
+    const pixels = grain.createImageData(96, 96);
+    let seed = 6147;
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const n = seed >>> 24;
+      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = n;
+      pixels.data[i + 3] = 255;
+    }
+    grain.putImageData(pixels, 0, 0);
+  }
+  // 轻微固定传感器颗粒与边缘照度下降；不模糊手部和计分物品。
+  ctx.save();
+  ctx.globalAlpha = 0.035;
+  ctx.fillStyle = ctx.createPattern(sensorTexture, "repeat")!;
+  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+  ctx.globalAlpha = 1;
+  const edge = ctx.createRadialGradient(300, 165, 150, 300, 165, 390);
+  edge.addColorStop(0, "#14201900");
+  edge.addColorStop(1, "#12201933");
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+  ctx.restore();
+}
 
 export function drawOps(ctx: CanvasRenderingContext2D, ops: readonly DrawOp[]) {
   for (const op of ops) {
@@ -65,13 +101,27 @@ export function renderCamera(
     fit.offsetY * pixelY,
   );
   ctx.clearRect(0, 0, WORLD_W, WORLD_H);
-  const { ops, actors } = sceneGeometry(
+  const { ops, actors, backgroundCount } = sceneGeometry(
     game.plan,
     game.tick,
     scene,
     game.caught,
   );
-  drawOps(ctx, ops);
+  const frameKey = `${scene}:${game.plan.config.visualVersion ?? "classic"}`;
+  let room = roomFrames.get(canvas);
+  if (!room || room.key !== frameKey) {
+    const image = document.createElement("canvas");
+    image.width = 1200;
+    image.height = 700;
+    const surface = image.getContext("2d")!;
+    surface.scale(2, 2);
+    drawOps(surface, ops.slice(0, backgroundCount));
+    room = { key: frameKey, image };
+    roomFrames.set(canvas, room);
+  }
+  ctx.drawImage(room.image, 0, 0, WORLD_W, WORLD_H);
+  drawOps(ctx, ops.slice(backgroundCount));
+  if (game.plan.config.visualVersion === VISUAL_VERSION) sensorFinish(ctx);
   const highlight = reviewId ?? hoverId;
   if (highlight !== null) {
     const a = actors.find((v) => v.person.id === highlight);
@@ -80,7 +130,7 @@ export function renderCamera(
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 3]);
       ctx.beginPath();
-      ctx.ellipse(a.x, a.y + 5, 25, 34, 0, 0, Math.PI * 2);
+      ctx.ellipse(a.x, a.y + 5, 23, 29, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
     }

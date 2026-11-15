@@ -22,8 +22,8 @@ const defaults = (): SavedData => ({
   recent: [],
   best: {},
 });
-export const conditionKey = (r: RunRecord) =>
-  [
+export const conditionKey = (r: RunRecord) => {
+  const key = [
     r.config.seed,
     r.config.difficulty,
     r.config.duration,
@@ -32,6 +32,11 @@ export const conditionKey = (r: RunRecord) =>
     r.config.debug ? "debug" : "normal",
     r.config.tutorial ? "tutorial" : "exam",
   ].join("|");
+  // 保留旧键才能继续读取已有最佳；新版画面单独比较，不迁移旧成绩。
+  return r.config.visualVersion === undefined
+    ? key
+    : `${key}|visual:${r.config.visualVersion}`;
+};
 export class LocalStore {
   data: SavedData = defaults();
   available = true;

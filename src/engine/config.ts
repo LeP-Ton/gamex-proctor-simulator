@@ -1,4 +1,5 @@
 export const RULE_VERSION = "1.0.0";
+export const VISUAL_VERSION = "cctv-2";
 export const TICK_RATE = 20;
 export const msToTicks = (ms: number) => Math.round((ms * TICK_RATE) / 1000);
 export const seconds = (s: number) => Math.round(s * TICK_RATE);
@@ -145,6 +146,8 @@ export interface GameConfig {
   difficulty: Difficulty;
   duration: number;
   ruleVersion: string;
+  // 旧记录没有此字段；视觉版本只区分观察条件，不参与事件随机。
+  visualVersion?: string;
   layout: "desktop" | "practice";
   debug: boolean;
   tutorial: boolean;
@@ -157,6 +160,7 @@ export const makeConfig = (
   difficulty,
   duration: BALANCE.duration,
   ruleVersion: RULE_VERSION,
+  visualVersion: VISUAL_VERSION,
   layout: "desktop",
   debug: false,
   tutorial: false,
