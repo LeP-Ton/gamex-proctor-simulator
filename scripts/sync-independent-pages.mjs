@@ -6,14 +6,15 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 只同步这两个已授权的公开部署仓库，保留远端提交历史，不存储凭据。
+// 只同步这三个已授权的公开部署仓库，保留远端提交历史，不存储凭据。
 const specifications = {
   illustrated: { repo: 'LeP-Ton/gamex-proctor-illustrated', branch: 'codex/illustrated', name: '插画首版' },
+  photo: { repo: 'LeP-Ton/gamex-proctor-photo', branch: 'codex/photo', name: '照片版' },
   realistic: { repo: 'LeP-Ton/gamex-proctor-realistic', branch: 'codex/realistic', name: '写实版' },
 };
 const version = process.argv[2];
 const spec = specifications[version];
-assert.ok(spec, '参数只允许 illustrated 或 realistic');
+assert.ok(Object.hasOwn(specifications, version), '参数只允许 illustrated、photo 或 realistic');
 const cwd = process.env.PROCTOR_SOURCE_DIRECTORY || fileURLToPath(new URL('..', import.meta.url));
 const requestedSource = process.argv[3] || spec.branch;
 const sourceRepo = 'LeP-Ton/gamex-proctor-simulator';
@@ -26,6 +27,13 @@ const sourceHead = gitText('rev-parse', `${requestedSource}^{commit}`).trim();
 assert.match(sourceHead, /^[0-9a-f]{40}$/);
 assert.equal(gitText('merge-base', '--is-ancestor', sourceHead, spec.branch), '', '提交须属于对应的本地版本分支');
 const sourceTree = gitText('rev-parse', `${sourceHead}^{tree}`).trim();
+// 先验证照片版部署保护，再访问远端；另外两版继续使用原发布模板。
+let photoWorkflow;
+if (version === 'photo') {
+  photoWorkflow = gitText('show', `${sourceHead}:.github/workflows/pages.yml`);
+  assert.ok(photoWorkflow.includes('branches: [codex/photo]'), '照片版工作流须只监听本版本分支');
+  assert.match(photoWorkflow, /^  deploy:\r?\n    if: github\.repository == 'LeP-Ton\/gamex-proctor-photo' && github\.ref == 'refs\/heads\/codex\/photo'\r?\n/m, '照片版部署须限定独立仓库和版本分支');
+}
 const api = async (method, endpoint, body) => {
   if (body === undefined) {
     const result = await run('gh', ['api', '--method', method, endpoint], { cwd, maxBuffer: 16e6 });
@@ -83,7 +91,7 @@ if (!policies.branch_policies.some(item => item.name === spec.branch && item.typ
 }
 
 const provenance = { schemaVersion: 1, version, sourceRepository: sourceRepo, sourceBranch: spec.branch, sourceCommit: sourceHead, sourceTree, deploymentRepository: spec.repo, deploymentBranch: spec.branch };
-const workflow = `name: 独立发布${spec.name}到 Pages
+const generatedWorkflow = `name: 独立发布${spec.name}到 Pages
 
 on:
   push:
@@ -139,6 +147,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v5
 `.replace('__PAGE_URL__', '$' + '{{ steps.deployment.outputs.page_url }}');
+const workflow = photoWorkflow ?? generatedWorkflow;
 const overrides = new Map([
  ['.github/workflows/pages.yml', Buffer.from(workflow)],
  ['public/deployment.json', Buffer.from(JSON.stringify(provenance, null, 2) + '\n')],

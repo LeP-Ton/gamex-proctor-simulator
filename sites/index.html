@@ -4,15 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#101b25" />
-    <meta name="description" content="选择监考模拟器的插画首版或写实新版，开始六路考场巡查。" />
+    <meta name="description" content="选择监考模拟器的插画首版、会话54照片版或会话88的3D版，开始六路考场巡查。" />
     <title>监考模拟器 · 选择版本</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./style.css" />
     <script>
-      // 旧试玩书签转到独立写实站点；普通首页保留两个版本的选择。
+      // motion-4 恢复会话54的照片版；其余历史参数沿用3D版去向。
       const legacyQuery = new URLSearchParams(location.search);
       if (legacyQuery.has("v") || legacyQuery.has("debug")) {
-        const target = new URL("https://lep-ton.github.io/gamex-proctor-realistic/");
+        const target = new URL(legacyQuery.get("v") === "motion-4"
+          ? "https://lep-ton.github.io/gamex-proctor-photo/"
+          : "https://lep-ton.github.io/gamex-proctor-realistic/");
         target.search = location.search;
         target.hash = location.hash;
         location.replace(target.href);
@@ -26,7 +28,7 @@
         <h1>选择画面版本</h1>
         <p>观察六路考场画面，发现明确违规，及时点击举报。</p>
       </header>
-      <section class="versions" aria-label="两个可玩版本">
+      <section class="versions" aria-label="三个可玩版本">
         <article class="version illustrated">
           <div class="card-top"><span class="version-tag">经典体验</span><span class="number">01</span></div>
           <div class="version-icon" aria-hidden="true">✎</div>
@@ -35,16 +37,24 @@
           <ul><li>原版插画画面</li><li>六屏巡查与完整考试</li><li>教学、结算与事件复盘</li></ul>
           <a class="play" href="https://lep-ton.github.io/gamex-proctor-illustrated/">开始插画版 <span aria-hidden="true">↗</span></a>
         </article>
+        <article class="version photo">
+          <div class="card-top"><span class="version-tag">会话54 · motion-4</span><span class="number">02</span></div>
+          <div class="version-icon" aria-hidden="true">▣</div>
+          <h2>照片版</h2>
+          <p>保留照片人物与教室合成的监控画面，延续会话54的连贯动作版本。</p>
+          <ul><li>照片人物与教室素材</li><li>二维网格连续变形动作</li><li>六屏巡查、教学与复盘</li></ul>
+          <a class="play" href="https://lep-ton.github.io/gamex-proctor-photo/">开始照片版 <span aria-hidden="true">↗</span></a>
+        </article>
         <article class="version realistic">
-          <div class="card-top"><span class="version-tag">当前新版</span><span class="number">02</span></div>
+          <div class="card-top"><span class="version-tag">会话88 · rig-5</span><span class="number">03</span></div>
           <div class="version-icon" aria-hidden="true">◉</div>
-          <h2>写实新版</h2>
-          <p>持续优化考场质感、人物动作与细节，保留六路巡查和完整复盘。</p>
-          <ul><li>监控风格画面</li><li>人物动作与考场细节持续升级</li><li>六屏巡查、教学与复盘</li></ul>
-          <a class="play" href="https://lep-ton.github.io/gamex-proctor-realistic/">开始写实版 <span aria-hidden="true">↗</span></a>
+          <h2>3D版</h2>
+          <p>采用三维人物和教室建模，呈现脚步、转向、走门与统一光照阴影。</p>
+          <ul><li>三维骨骼人物与实体桌椅</li><li>脚步、转向和离场全过程</li><li>六屏巡查、教学与复盘</li></ul>
+          <a class="play" href="https://lep-ton.github.io/gamex-proctor-realistic/">开始3D版 <span aria-hidden="true">↗</span></a>
         </article>
       </section>
-      <p class="save-note"><span aria-hidden="true">◇</span> 两个版本独立部署，设置与成绩分开保存，可随时切换体验。</p>
+      <p class="save-note"><span aria-hidden="true">◇</span> 三个版本独立部署，设置与成绩分别保存，可随时切换体验。</p>
       <footer>考场视频巡查系统 · 中文单机观察游戏</footer>
     </main>
   </body>
