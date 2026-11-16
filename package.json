@@ -14,7 +14,7 @@
     "test:motion": "npm run build && node tests/motion-browser.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "test:pages": "node --test tests/pages.test.mjs",
-    "test:pages-browser": "node tests/pages-browser.mjs"
+    "sync:pages": "node scripts/sync-independent-pages.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,36 +1,23 @@
 # GameX · 监考模拟器
 
-在「考场视频巡查系统」中同时观察六路画面，发现明确违规后直接点击人物或物品。单局固定六分钟，挑战同种子下的最高成绩。
+在六路考场画面中观察人物和物品，发现明确违规后直接点击举报。支持教学、固定六分钟考试、三档难度、种子重赛、本地记录与真实事件复盘。
 
-项目提供独立维护的插画首版和写实新版。下述连贯人物与照片素材说明对应 `codex/realistic`；插画首版保留原有画面和可玩流程。
+插画首版和写实版分别维护、分别部署。两个独立站点已完成云端测试、构建、部署及线上浏览器验收。main 仅维护选择页和旧书签兼容跳转。
 
-写实新版使用连贯动作监控画面：20 种本地照片底片，加上每位考生固定的体态、衣色和动作节奏差异。人物以同一张底片连续变形，连接头肩、肘腕、书写、肩背舒展与步态，避免直接切换姿势照片和几何长臂。桌前层与实际拾取共用同一网格和透明轮廓。
+| 版本 | 独立试玩 | 权威源码 | 独立部署仓库 |
+| --- | --- | --- | --- |
+| 插画首版 | [打开插画版](https://lep-ton.github.io/gamex-proctor-illustrated/) | [codex/illustrated](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/illustrated) | [gamex-proctor-illustrated](https://github.com/LeP-Ton/gamex-proctor-illustrated) |
+| 写实版 | [打开写实版](https://lep-ton.github.io/gamex-proctor-realistic/) | [codex/realistic](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/realistic) | [gamex-proctor-realistic](https://github.com/LeP-Ton/gamex-proctor-realistic) |
 
-图片均为 AI 生成原创素材，运行时不调用 AI 或远程素材服务。首次进入会等待约 4.5MB 本地素材解码，失败可重试。新开局使用 `motion-4`；三代旧记录继续按原画面复盘，四种视觉条件的最佳成绩分别保存，计分机会保持不变。
+[版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)保持原地址。旧根 `?v=...` / `?debug=...` 及 `/realistic/` 转独立写实站，`/illustrated/` 转独立插画站，完整保留查询和片段。main 本次入口迁移已通过本地测试，最终云端状态见[需求记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
 
-## GitHub Pages 双版本发布
+两游戏站分别构建自己的产物，更新一版不触发另一版。两站仍同属 `lep-ton.github.io`，因此显式隔离保存键：插画版 `gamex-proctor-illustrated-v1`，写实版 `gamex-proctor-v1`；原写实记录保留。
 
-两个版本已同时上线。云端测试、构建和[联合部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43810840015)通过，线上双入口、交互、存档隔离与资源核验通过。
+每站 `deployment.json` 标明完整权威源 SHA、源 tree 和部署仓库。查看[插画来源](https://lep-ton.github.io/gamex-proctor-illustrated/deployment.json)、[写实来源](https://lep-ton.github.io/gamex-proctor-realistic/deployment.json)；选择页不固化各站当前提交。
 
-| 版本 | Pages 入口 | 独立源码分支 |
-| --- | --- | --- |
-| 版本选择页 | [选择两个可玩版本](https://lep-ton.github.io/gamex-proctor-simulator/) | `main` 负责组装与发布 |
-| 插画首版 | [打开插画版](https://lep-ton.github.io/gamex-proctor-simulator/illustrated/) | [codex/illustrated](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/illustrated) |
-| 写实新版 | [打开写实版](https://lep-ton.github.io/gamex-proctor-simulator/realistic/) | [codex/realistic](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/realistic) |
+## 游戏开发
 
-两个游戏分支已在[公开仓库](https://github.com/LeP-Ton/gamex-proctor-simulator)创建。插画版基于首版运行源码，增加独立保存键和部署适配；写实版保留当前连贯动作实现。本次不修改两版玩法和平衡参数。
-
-Pages 由 main 的 `.github/workflows/pages.yml` 统一发布：先把两个分支锁定为完整 SHA，分别安装依赖、测试和构建，再由 `scripts/build-pages.mjs` 生成一份包含两个子目录和选择页的 `dist/`。任何一版失败均不部署，避免两次发布互相覆盖。`manifest.json` 可核对每版的分支、源提交、入口与保存键。
-
-版本分支更新通过薄工作流请求 `workflow_dispatch main`，部署始终在 main 上执行。根目录的旧 `?v=...` 或 `?debug=...` 书签进入写实版并保留查询参数与片段；普通根首页显示两个版本供选择。
-
-两个地址同源，但存档键不同：插画版为 `gamex-proctor-illustrated-v1`，写实版继续使用 `gamex-proctor-v1`，保留当前已有记录。两个版本的设置和成绩不混写。
-
-双版本方案、基线与验收见 [REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。此前单写实版的发布记录保留在[连贯动作阶段](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)。
-
-## 本地启动与分支
-
-需要 Node.js 20.19+。进入项目根目录后，在已保存改动的工作区选择要开发的版本；日常写实开发默认使用 `codex/realistic`：
+保存已有改动后切换对应版本，日常写实开发使用：
 
 ```sh
 git switch codex/realistic
@@ -38,94 +25,42 @@ npm ci
 npm run dev
 ```
 
-开发或试玩插画首版时切换分支，再安装该分支锁定的依赖：
+插画版切换 `codex/illustrated`。两版各自运行 `npm test`、`npm run build`，完整命令、实现、素材及限制见对应分支 README/TESTING。main 的 `src/` 是历史快照，其普通 Vite 构建不代表线上游戏。
 
-```sh
-git switch codex/illustrated
-npm ci
-npm run dev
-```
+写实版 `rig-5` 已独立上线：完整骨骼脚步与转向、起身走门开门返座、实际肢体与手掌、实体桌椅和统一深度阴影。53 项核心检查、15,000 组调度压力、本地完整流程和三段实际动作录像、正式站点 10 组浏览器流程通过；详见[写实分支三维返修记录](https://github.com/LeP-Ton/gamex-proctor-simulator/blob/codex/realistic/.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116134618-三维人物与场景返修.md)。
 
-两版均支持：
+## 选择页维护
 
-```sh
-npm run build       # 类型检查并生成该版本的 dist/
-npm run preview     # 预览该版本构建
-npm test            # 运行该版本自己的核心测试
-npm run test:browser   # 该版本的完整浏览器流程与两种尺寸检查
-npm run test:realtime  # 不快进的真实六分钟正式考试
-```
-
-写实版另有 `npm run test:motion`，用于实际 Canvas 录像、动作边界和帧间隔检查。浏览器测试使用本机 Chrome 的隔离临时配置；也可通过 `PROCTOR_BROWSER_PATH` 指定浏览器。没有 Chrome 时先执行 `npx playwright install chromium`。
-
-发布维护在 main 上进行：
+main 无需安装游戏依赖：
 
 ```sh
 git switch main
-npm run test:pages          # 只需 Node，验证组合产物与兼容入口
-npm ci                     # 浏览器检查需要 main 的开发依赖
-npm run test:pages-browser  # 需先组装 dist/，检查双版交互与同源存档隔离
+npm run test:pages
+npm run build:pages -- --output dist
 ```
 
-`npm run build:pages -- --illustrated-dist ... --realistic-dist ... --output dist --illustrated-sha ... --realistic-sha ...` 接收两版已构建目录及各自完整 SHA。云端工作流自动准备这些来源；main 的普通 `npm run build` 仅构建保留的应用快照，不代表双版本组合发布。
+`.github/workflows/pages.yml` 只测试选择页、构建根入口和兼容跳转、上传部署本仓库 Pages。`scripts/build-pages.mjs` 暂存完整产物后替换输出，失败保留前产物；不读取游戏 dist、不解析游戏分支、不触发独立游戏仓库。
 
-## 操作与规则
+源码为 `sites/index.html`、`sites/style.css` 和 `public/favicon.svg`。产物含根入口、`manifest.json`、旧 `/illustrated/` 与 `/realistic/` 跳转页。旧 `tests/pages-browser.mjs` 保留为历史组合站点验收，不再列入当前 main 命令。
 
-- 左键直接点击人物身体或可见违规物品举报；空白点击也算误报。
-- 点击机位右上角或按 `1`—`6` 放大。其他五路保留可点击缩略图；`Esc` 返回六屏。
-- `空格` 或「暂停」遮住所有画面并停止模拟；切出标签页、窗口失焦或长时间运行中断也会安全暂停，需主动继续。
-- 明确违规包括：亮屏电子设备、黄色夹带折页、明显探身窥卷并抄写、传递黄色材料、公共洗手区查看或交换黄色材料。
-- 正常书写、思考、看钟、伸展、捡笔、整理文具、普通转头、归还蓝色笔、离场、洗手和等候均允许。准备阶段不能举报。
-- 正确 +100，误报 −150，漏查 −100。第 5 次连续正确起 ×1.2，第 10 次起 ×1.5；倍率只作用于正确得分。
-- 成功立即结束该事件，提供 0.5 秒重复输入保护；误报仅使当前机位冷却 1 秒。
+## 单独更新游戏站点
 
-默认三档难度：入门 30 件、6—8 秒、最多 1 件并发；常规 48 件、4—6 秒、最多 2 件并发；高压 66 件、3—5 秒、最多 3 件并发。六屏桌面是主要观察条件；小于 1000px 的布局单独标记为窄屏练习。
+先完成相应版本的开发和验证，将提交同步到权威源码分支，再从本仓库 main 执行：
 
-结算展示成绩指标和按时间排列的已抓到、漏查、误报记录。点击记录可以播放、拖动真实片段；复盘为只读。可使用同种子重赛或生成新种子。
-
-## 工程结构
-
-```text
-src/
-├── engine/
-│   ├── config.ts       # 平衡参数、动作模板、规则版本及难度
-│   ├── random.ts       # 种子随机数与稳定哈希
-│   ├── schedule.ts     # 固定事件时间表、参与者预约、公共区行程与约束校验
-│   ├── world.ts        # 普通行为、人物唯一位置与当前可见动作
-│   ├── game.ts         # 20Hz 固定步长、计分、输入日志与只读重放
-│   ├── tutorial.ts     # 2→4→6 路渐进教学
-│   └── types.ts        # 世界、事件、成绩及记录结构
-├── render/
-│   ├── geometry.ts    # 统一绘制列表、遮挡、拾取和坐标变换
-│   ├── canvas.ts      # Canvas 绘制、等比例缩放与局部反馈
-│   ├── candidate-motion.ts # 稳定外观、连续动作曲线与真实举报后的回正
-│   ├── photo-mesh.ts / mesh-renderer.ts # 可逆网格、GPU 图集与 Canvas 降级
-│   ├── photo-geometry.ts # V3 照片冻结画面，仅用于旧局复盘
-│   ├── photo-assets.ts # 照片裁剪帧、真实透明掩码与头部锚点（生成数据）
-│   ├── monitor-geometry.ts # V2 监控冻结画面，仅用于旧局复盘
-│   └── legacy-geometry.ts # 首版冻结画面，仅用于旧局复盘
-├── ui/                # 图标与反馈音
-├── main.ts            # 界面、输入、暂停、教学、设置及复盘播放器
-├── storage.ts         # 本地设置、同条件最佳及最近十局
-└── style.css
-tests/                 # 引擎测试与生产包浏览器验收脚本
-public/assets/photo-3/ # 原照片素材、来源说明与生成提示词
-public/assets/motion-4/ # 新人物素材、裁剪边界与原始生成提示词
-scripts/               # 可选离线素材准备工具；正常运行和构建无需 Python
+```sh
+node scripts/sync-independent-pages.mjs realistic <完整源码SHA>
 ```
 
-引擎使用整数 tick（每秒 20 次），渲染约 30fps，避免不同画面各自计时。所有计分事件在开局时生成，提前抓到不会增加后续事件。动作有效区间为 `[start, end)`。计分、正常行为及普通来访使用独立随机来源，观察、悬停、放大和重放不消耗计分随机数。
+插画版使用参数 `illustrated`。脚本只推进所选部署仓库的版本分支，该镜像推送触发自身测试、构建和部署；不请求原 main，不保存跨仓库 token，使用本机已登录 gh 的授权。
 
-绘制与拾取使用同一批几何和照片帧；连续动作从实际网格逆映射回源照片，按逆绘制顺序拾取；桌面、人物和前景可真实遮挡。照片使用实际 alpha 透明掩码，桌腿镂空和人物透明边缘不可命中。画面等比例缩放，输入使用同一变换，兼容设备像素比（DPR）。成功后旧物品轮廓只用于短暂忽略重复输入，不会成为新的得分目标。
+源码根目录默认按脚本位置解析，非敏感同步状态默认 `artifacts/independent-pages/`。保留已核实的 state 文件；远端 HEAD 不一致则停止，不重写未知历史。可用 `PROCTOR_SOURCE_DIRECTORY`、`PROCTOR_PAGES_STATE_DIRECTORY` 指定源码和忽略的状态目录。
 
-复盘从本局保存的事件计划和实际输入日志重建整个世界，而非播放通用示意动画。本地成绩按种子、难度、时长、规则版本、布局和辅助标记隔离。隐私模式或存储配额不可用时，游戏继续运行，记录退回内存保存。
+镜像保留游戏运行文件，只适配自身工作流、README、AGENTS 和 `public/deployment.json`。源分支可只测试构建，部署受目标仓库和分支保护；镜像覆盖为独立发布模板。
 
-## 开发调试
+## 验收与追溯
 
-显式访问 `/?debug=1` 会显示辅助调试标记及时间定位、固定动作变体、模拟冻结工具。此模式的成绩与正式成绩隔离。正式入口默认不显示目标、倒计时、嫌疑度或机位报警。开发服务器和显式辅助模式提供 `window.__proctor`，用于可重复验收；普通生产入口不提供该接口。
+- 首次独立发布：[插画任务 43811806502](https://github.com/LeP-Ton/gamex-proctor-illustrated/actions/runs/43811806502)、[写实任务 43812180658](https://github.com/LeP-Ton/gamex-proctor-realistic/actions/runs/43812180658)，分别 16/36 项核心测试、构建部署通过。
+- 两站 Chrome 验收通过：两种桌面尺寸、20 次真实举报、模拟整局结算、独立保存、来源清单；14 个响应正文与已验收本地包逐字节一致，无控制台或资源错误。
+- main 新选择页的 4 项测试与本地构建通过；最终云端及线上结果见[独立部署返修](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/20261116134658-独立部署返修.md)。自动化检查不等于用户体验验收。
 
-## 验证与边界
-
-实际结果见 [TESTING.md](TESTING.md)。已知边界：桌面单机、原创照片素材与程序动作合成、浏览器本地存储；人物仍为二维照片与网格合成，基础面孔数量有限，大角度动作和局部肢体可能保留合成痕迹。没有服务器排行榜、跨设备同步、视频导出或完整无视觉辅助操作。后续计划见 [TODO.md](TODO.md)。
-
-需求入口：[游戏实现 REQ-20261113124409](.agentdocs/workflow/REQ-20261113124409-监考模拟器/README.md)；[双版本分支发布 REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
+需求入口：[游戏实现 REQ-20261113124409](.agentdocs/workflow/REQ-20261113124409-监考模拟器/README.md)；[独立分支发布 REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。原[组合发布记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/20261116130906-双版本发布.md)保留历史证据，当前方案已被独立部署替代。
