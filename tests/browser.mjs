@@ -263,10 +263,19 @@ try {
       monitor.config.visualVersion = "cctv-2";
       monitor.plan.config.visualVersion = "cctv-2";
       q.store.data.recent.push(monitor);
+      const photo = structuredClone(q.store.data.recent[0]);
+      photo.id = "photo-check";
+      photo.config.visualVersion = "photo-3";
+      photo.plan.config.visualVersion = "photo-3";
+      q.store.data.recent.push(photo);
       q.store.persist();
     });
     await page.getByRole("button", { name: "返回准备", exact: true }).click();
     await page.getByRole("button", { name: "最近十局", exact: true }).click();
+    for (const label of ["经典画面", "监控画面 V2", "照片质感画面", "连贯动作画面"]) {
+      const rows = page.locator(".history-row").filter({ hasText: label });
+      assert.equal(await rows.count(), 1, `${label} 应保留独立标签`);
+    }
     await page.locator(".history-row").filter({ hasText: "经典画面" }).click();
     assert.match(
       await page.locator(".results-heading .modal-intro").textContent(),
@@ -297,6 +306,22 @@ try {
       await page.evaluate(() => JSON.stringify(window.__proctor.store.data)),
       oldData,
     );
+    await page.getByRole("button", { name: "返回准备", exact: true }).click();
+    await page.getByRole("button", { name: "最近十局", exact: true }).click();
+    await page
+      .locator(".history-row")
+      .filter({ hasText: "照片质感画面" })
+      .click();
+    assert.match(
+      await page.locator(".results-heading .modal-intro").textContent(),
+      /照片质感画面/,
+    );
+    await page.locator("#review-slider").press("End");
+    await shot("photo-v3-review");
+    assert.equal(
+      await page.evaluate(() => JSON.stringify(window.__proctor.store.data)),
+      oldData,
+    );
     await page
       .getByRole("button", { name: "同种子再挑战", exact: true })
       .click();
@@ -304,9 +329,9 @@ try {
       await page.evaluate(
         () => window.__proctor.game.plan.config.visualVersion,
       ),
-      "photo-3",
+      "motion-4",
     );
-    check("两代旧记录按原画面只读复盘，新开局使用照片质感画面");
+    check("四代画面标签独立，三代旧记录只读复盘，新开局使用连贯动作画面");
   } else if (realtime) {
     await page.goto(base);
     await waitForAssets();

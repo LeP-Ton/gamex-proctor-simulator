@@ -1,0 +1,23 @@
+{
+  "生成方式": "内置 imagegen 工具；本地原创照片质感人物素材；非真实监控与真人身份资料",
+  "日期": "2026-11-16，Asia/Shanghai",
+  "用途": "REQ-20261113124409 连贯动作及人物身份扩展",
+  "素材": [
+    {
+      "名称": "peopleC",
+      "正式文件": "peopleC.webp",
+      "透明背景": true,
+      "像素尺寸": [
+        1536,
+        1024
+      ],
+      "身份数量": 12,
+      "帧数量": 24,
+      "提示词原文": "Use case: photorealistic-natural. Asset type: transparent photographic human cutout atlas for a real-time CCTV examination game. EXACT equal grid SIX columns by FOUR rows, 24 separate full-body photographs, no labels, no grid border, actual transparent background. Twelve distinct Chinese adult university students age 21–29, realistic anatomy, distinct natural faces/haircuts/builds and everyday cotton clothes, nobody stylized. A ceiling mounted CCTV camera looks down 55 degrees, subjects face the camera with eyes lowered; see tops of heads, shoulders, knees and shoes. Soft neutral overhead window light. Row1 six DIFFERENT MALE identities wearing respectively faded burgundy oxford shirt, charcoal henley, pale blue denim shirt, muted brown short-sleeve shirt, fine striped white polo, dark forest green shirt; some slim, some stocky, haircuts differ; small natural heads. Row2 six DIFFERENT FEMALE identities wearing respectively muted sage blouse, dusty blue cardigan, light gray knit, pale lavender shirt, taupe cotton blouse, faded maroon blouse; short pixie, bob, low ponytail, shoulder length, neat bun, tied-back hair respectively. Rows1 and2 all SEATED as if taking an exam at an invisible desk: lean slightly forward, forearms angled down/forward with elbows naturally wider and hands holding an imaginary pen near each other at desktop height, knees bent, feet visible. No chair or desk. Row3 repeats the exact six male identities in row1, same clothes/hair, now STANDING upright, head lowered, both hands in front around waist. Row4 repeats exact six female identities in row2 likewise standing. Every body stays entirely in its own equal cell, centered, 8 percent transparent margin all round, no overlap. No props, no phone, no paper. Must look like ordinary real people photographed by a ceiling security camera, photographic skin, individual hair and fabric detail. NO illustration, no cartoon, no smooth plastic CGI, no black outlines, no montage background. True transparent alpha, not baked checkerboard.",
+      "提示词记录状态": "已补录实际使用原文",
+      "原始PNG文件名": "exec-ed4cbf12-9718-4dbb-8b4d-e1381dd3d5c0.png",
+      "原始PNG_SHA256": "a111d8825befa873ef01f91232d1dfdbe4b237440a301fc36a041c9d6ebbef23",
+      "正式WebP_SHA256": "995ab65b783fb1dd6e59df30d0d5a69db801200ec3616f797e34b9e7fb9fb881"
+    }
+  ]
+}

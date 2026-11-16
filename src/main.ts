@@ -65,10 +65,12 @@ const timestamp = (tick: number) =>
     .padStart(2, "0")}`;
 const visualName = (version: GameConfig["visualVersion"]) =>
   version === VISUAL_VERSION
-    ? "照片质感画面"
-    : version === "cctv-2"
-      ? "监控画面 V2"
-      : "经典画面";
+    ? "连贯动作画面"
+    : version === "photo-3"
+      ? "照片质感画面"
+      : version === "cctv-2"
+        ? "监控画面 V2"
+        : "经典画面";
 const pct = (n: number | null) =>
   n === null ? "—" : `${Math.round(n * 100)}%`;
 let difficulty: Difficulty = store.data.settings.difficulty;
@@ -366,7 +368,13 @@ function report(scene: number, x: number, y: number) {
   )
     return;
   // 使用本次模拟时刻实际显示的可见对象，放大和 DPR 不参与游戏规则。
-  const geometry = sceneGeometry(game.plan, game.tick, scene, game.caught);
+  const geometry = sceneGeometry(
+    game.plan,
+    game.tick,
+    scene,
+    game.caught,
+    game.records,
+  );
   const id = pickWithProtection(
     geometry.ops,
     protectedGeometry[scene],
@@ -954,7 +962,7 @@ if (import.meta.env.DEV || debugRequested) {
     pause,
     resume,
     geometry: (scene: number) =>
-      sceneGeometry(game.plan, game.tick, scene, game.caught),
+      sceneGeometry(game.plan, game.tick, scene, game.caught, game.records),
     replayAt,
     actorViews,
     fixture: (kind: keyof typeof CHEATS, variant: number) => {

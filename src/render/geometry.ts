@@ -3,10 +3,25 @@ import {
   background as legacyBackground,
 } from "./legacy-geometry.js";
 import { sceneGeometry as monitorGeometry } from "./monitor-geometry.js";
+import { sceneGeometry as photoGeometry } from "./photo-geometry.js";
 import { actorViews, seatPosition } from "../engine/world.js";
 import { TICK_RATE, VISUAL_VERSION } from "../engine/config.js";
-import { hash } from "../engine/random.js";
-import type { ActorView, Person, Plan } from "../engine/types.js";
+import {
+  candidatePose,
+  publicVisualView,
+  candidateProfile,
+  physicalEvent,
+  smooth,
+} from "./candidate-motion.js";
+import {
+  meshBounds,
+  meshPoint,
+  meshUV,
+  inArmRegion,
+  limitMeshStrain,
+} from "./photo-mesh.js";
+import type { PhotoMesh } from "./photo-mesh.js";
+import type { ActorView, Person, Plan, RecordEntry } from "../engine/types.js";
 import { containsPhoto, photoFrame, photoHead } from "./photo-assets.js";
 import type { PhotoAssetId } from "./photo-assets.js";
 
@@ -23,6 +38,9 @@ export type ImageShape = {
   flipX?: boolean;
   role?: "person";
   head?: { x: number; y: number };
+  mesh?: PhotoMesh;
+  part?: "arms";
+  appearance?: { hue: number; saturation: number; brightness: number };
   // 裁剪只限制实际显示的肢体片段，命中使用同一裁剪和透明掩码。
   clip?: [number, number, number, number];
 };
@@ -104,14 +122,6 @@ export function background(scene: number): DrawOp[] {
   return ops;
 }
 
-function identity(person: Person) {
-  const variation =
-    hash(`${person.id}/${person.shirt}/${person.hairstyle}`) % 4;
-  return {
-    asset: (variation >= 2 ? "peopleB" : "people") as PhotoAssetId,
-    column: (person.gender === "female" ? 2 : 0) + (variation % 2),
-  };
-}
 function picture(
   asset: PhotoAssetId,
   frame: number,
@@ -156,151 +166,135 @@ function desk(ops: DrawOp[], scene: number, person: Person) {
     blocks: false,
   });
 }
-function body(view: ActorView, tick: number): ImageShape {
-  const { person, event, phase, scene, action } = view;
-  const seated = scene < 4;
-  const active = phase === "active";
-  const t = tick / TICK_RATE;
-  const { asset, column } = identity(person);
-  let row = seated ? 0 : 3;
-  let offset = 0;
-  let down = 0;
-  let flipX = false;
-  if (seated && !active) {
-    if (action === "stretch") row = 2;
-    if (action === "pickPen" || action === "bag") {
-      row = 1;
-      offset = 5;
-      down = 4;
-    }
-    if (action === "turn" || action === "glance" || phase === "prepare") {
-      offset = Math.sin(t * 1.2 + person.id) * 3;
-    }
-    if (action === "clock") offset = -3;
+const GRID_U = [0, 0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88, 1];
+const GRID_V = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.59, 0.72, 0.86, 1];
+const TRIANGLES: number[] = [];
+for (let row = 0; row < GRID_V.length - 1; row++)
+  for (let col = 0; col < GRID_U.length - 1; col++) {
+    const a = row * GRID_U.length + col,
+      b = a + 1,
+      c = a + GRID_U.length,
+      d = c + 1;
+    TRIANGLES.push(a, c, b, b, c, d);
   }
-  if (active && event?.kind === "peeking") {
-    row = 1;
-    flipX = event.variant === 1;
-    offset = flipX ? -26 : 26;
-  }
-  const frame = row * 4 + column;
+const handUV = (shape: ImageShape, right: boolean) => ({
+  u: shape.asset === "peopleC" ? (right ? 0.59 : 0.41) : right ? 0.65 : 0.35,
+  v: shape.asset === "peopleC" ? 0.55 : 0.5,
+});
+function handPoint(shape: ImageShape, right: boolean) {
+  const point = handUV(shape, right);
+  return shape.mesh
+    ? meshPoint(shape.mesh, point.u, point.v)!
+    : { x: shape.x + shape.w * point.u, y: shape.y + shape.h * point.v };
+}
+function body(
+  view: ActorView,
+  tick: number,
+  plan: Plan,
+  records: readonly RecordEntry[],
+): ImageShape {
+  const seated = view.scene < 4;
+  const profile = candidateProfile(plan, view.person),
+    pose = candidatePose(plan, view, tick, records);
+  const frame = seated ? profile.frame : profile.standingFrame,
+    asset = profile.asset;
   const source = photoFrame({ asset, frame });
-  const p = projectPoint(scene, view.x + offset, view.y + down);
-  const height = (seated ? (row === 2 ? 108 : 89) : 101) * p.scale;
-  const width = (height * source.w) / source.h;
-  const breathe = Math.sin(t * 1.6 + person.id * 2.1) * 0.25;
+  const p = projectPoint(view.scene, view.x, view.y);
+  const height = (seated ? 89 : 101) * p.scale * profile.height;
+  const width = ((height * source.w) / source.h) * profile.width;
+  const top = p.y + (seated ? 57 : 55) * 0.92 - height;
+  const hu = (source.headX ?? source.w / 2) / source.w,
+    hv = (source.headY ?? source.h * 0.1) / source.h;
+  const uv: number[] = [],
+    xy: number[] = [],
+    baseXY: number[] = [];
+  const lhand = asset === "peopleC" ? 0.41 : 0.35,
+    rhand = 1 - lhand;
+  const wristY = asset === "peopleC" ? 0.55 : 0.5;
+  const influence = (
+    u: number,
+    v: number,
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+  ) => Math.exp(-(((u - cx) / rx) ** 2 + ((v - cy) / ry) ** 2));
+  for (const v of GRID_V)
+    for (const u of GRID_U) {
+      uv.push(u, v);
+      let x = (u - 0.5) * width,
+        y = v * height;
+      const upper = 1 - smooth((v - 0.4) / 0.29);
+      x += pose.leanX * p.scale * upper;
+      y += (pose.leanY * upper + pose.walkBob) * p.scale;
+      const hw = 1 - smooth((v - 0.14) / 0.11);
+      const hx = (hu - 0.5) * width,
+        hy = hv * height;
+      const dx = (u - hu) * width,
+        dy = (v - hv) * height;
+      const angle = pose.headAngle * hw,
+        co = Math.cos(angle),
+        si = Math.sin(angle);
+      x +=
+        (dx * co - dy * si - dx) * hw +
+        (u - hu) * width * (profile.headScale - 1) * hw;
+      y += (dx * si + dy * co - dy) * hw + pose.headY * p.scale * hw;
+      const shoulder = Math.exp(-(((v - 0.25) / 0.13) ** 2));
+      x += (u < 0.5 ? -1 : 1) * pose.shoulders * shoulder * p.scale;
+      const armBaseX = x,
+        armBaseY = y;
+      const arms = [
+        [lhand, wristY, pose.leftX, pose.leftY, 0.14, 0.12],
+        [rhand, wristY, pose.rightX, pose.rightY, 0.14, 0.12],
+        [0.1, 0.39, pose.elbowLeftX, pose.elbowLeftY, 0.13, 0.12],
+        [0.9, 0.39, pose.elbowRightX, pose.elbowRightY, 0.13, 0.12],
+      ];
+      for (const [cx, cy, mx, my, rx, ry] of arms) {
+        const w = influence(u, v, cx, cy, rx, ry);
+        x += mx * p.scale * w;
+        y += my * p.scale * w;
+      }
+      const armDX = x - armBaseX,
+        armDY = y - armBaseY;
+      if (!seated && v > 0.6) {
+        const legs = smooth((v - 0.6) / 0.3),
+          side = u < 0.5 ? -1 : 1;
+        x += pose.stride * 0.3 * legs * side * p.scale;
+        y += pose.stride * legs * side * p.scale;
+      }
+      baseXY.push(p.x + x - armDX, top + y - armDY);
+      xy.push(p.x + x, top + y);
+    }
+  const mesh = {
+    uv,
+    xy: limitMeshStrain(baseXY, xy, TRIANGLES),
+    triangles: TRIANGLES,
+  };
+  const bounds = meshBounds(mesh);
   const shape: ImageShape = {
     kind: "image",
     asset,
     frame,
-    x: p.x - width / 2,
-    y: p.y + (seated ? 57 : 55) * 0.92 - height + breathe,
-    w: width,
-    h: height,
-    flipX,
+    ...bounds,
+    mesh,
     role: "person",
+    appearance: {
+      hue: profile.hue,
+      saturation: profile.saturation,
+      brightness: profile.brightness,
+    },
   };
-  shape.head = photoHead(shape);
+  shape.head = meshPoint(mesh, hu, hv);
   return shape;
 }
-function forearms(
-  ops: DrawOp[],
-  shape: ImageShape,
-  view: ActorView,
-  tick: number,
-) {
-  const stretch = shape.frame >= 8 && shape.frame < 12;
-  if (stretch) return;
-  const n =
-    view.action === "writing" && !view.event
-      ? Math.sin(tick / 3 + view.person.id) * 0.35
-      : 0;
-  // 照片前臂在桌面前绘制；身体下半部仍被真实桌面遮挡。
-  for (const clip of [
-    [0, 0.28, 0.44, 0.29],
-    [0.56, 0.28, 0.44, 0.29],
-  ] as [number, number, number, number][]) {
-    ops.push({
-      shape: {
-        ...shape,
-        x: shape.x + n,
-        role: undefined,
-        head: undefined,
-        clip,
-      },
-      actorId: view.person.id,
-    });
-  }
-}
-function clothTone(color: string, amount: number) {
-  const value = parseInt(color.slice(1), 16);
-  const toward = amount > 0 ? 255 : 0;
-  const channels = [value >> 16, (value >> 8) & 255, value & 255].map((c) =>
-    Math.round(c + (toward - c) * Math.abs(amount)),
-  );
-  return `rgb(${channels.join(",")})`;
-}
-function arm(
-  ops: DrawOp[],
-  id: number,
-  from: [number, number],
-  to: [number, number],
-  cloth: string,
-) {
-  const [ax, ay] = from,
-    [bx, by] = to;
-  const mx = ax + (bx - ax) * 0.52,
-    my = ay + (by - ay) * 0.5;
+function forearms(ops: DrawOp[], shape: ImageShape, view: ActorView) {
+  // 桌前只复用同一网格中的真实前臂轮廓，不再贴回整块胸口衣料。
   ops.push({
-    shape: { kind: "line", points: [ax, ay, mx, my] },
-    stroke: cloth,
-    width: 7,
-    actorId: id,
-    gradient: {
-      x0: ax,
-      y0: ay - 4,
-      x1: ax,
-      y1: ay + 4,
-      stops: [
-        [0, clothTone(cloth, 0.22)],
-        [0.3, cloth],
-        [1, clothTone(cloth, -0.28)],
-      ],
-    },
-  });
-  ops.push({
-    shape: { kind: "line", points: [mx, my, bx, by] },
-    stroke: "#b99b83",
-    width: 4.8,
-    actorId: id,
-    gradient: {
-      x0: mx,
-      y0: my - 3,
-      x1: mx,
-      y1: my + 3,
-      stops: [
-        [0, "#c8b29a"],
-        [0.5, "#b49a82"],
-        [1, "#776b5d"],
-      ],
-    },
-  });
-  ops.push({
-    shape: { kind: "ellipse", x: bx, y: by, rx: 3.5, ry: 2.2 },
-    fill: "#b9a089",
-    actorId: id,
-    gradient: {
-      x0: bx,
-      y0: by - 2,
-      x1: bx,
-      y1: by + 2,
-      stops: [
-        [0, "#d5bca1"],
-        [1, "#8e7e6c"],
-      ],
-    },
+    shape: { ...shape, role: undefined, head: undefined, part: "arms" },
+    actorId: view.person.id,
   });
 }
+
 function scaleProp(
   ops: DrawOp[],
   start: number,
@@ -369,11 +363,11 @@ function material(
       x1: x + 10,
       y1: y + 8,
       stops: [
-        [0, "#ddc885"],
-        [0.48, "#e6d49b"],
-        [0.52, "#b9a36d"],
-        [0.55, "#e0cb90"],
-        [1, "#c8b17c"],
+        [0, "#e8cd65"],
+        [0.48, "#efda87"],
+        [0.52, "#bda35c"],
+        [0.55, "#e8cf77"],
+        [1, "#d2b763"],
       ],
     },
   });
@@ -478,118 +472,82 @@ function actions(
   ops: DrawOp[],
   view: ActorView,
   tick: number,
-  actors: ActorView[],
+  shapes: ReadonlyMap<number, ImageShape>,
 ) {
-  const { person, event, phase, scene } = view;
-  const p = projectPoint(scene, view.x, view.y),
-    id = person.id;
-  const t = tick / TICK_RATE;
-  const appearance = identity(person);
-  const outfit = (
-    appearance.asset === "peopleB"
-      ? ["#b8b9b1", "#606653", "#997d77", "#c3c2b6"]
-      : ["#3e4959", "#8c9291", "#a69c84", "#697582"]
-  )[appearance.column];
-  const active = phase === "active";
-  if (active && event) {
-    if (event.kind === "device") {
-      const dx = p.x + (event.variant ? -13 : 13),
-        dy = p.y + 14;
-      arm(ops, id, [p.x + 15, p.y - 5], [dx + 4, dy + 1], outfit);
-      phone(ops, id, dx, dy, event.variant === 1, p.scale);
-    } else if (event.kind === "notes") {
-      const x = p.x + (event.variant ? -12 : 12),
-        y = p.y + 18;
-      arm(ops, id, [p.x - 15, p.y - 3], [x - 6, y + 1], outfit);
-      material(ops, id, x, y, event.variant ? -1 : 1, p.scale);
-    } else if (event.kind === "passing") {
-      const other = actors.find(
-        (a) => a.person.id !== id && event.actors.includes(a.person.id),
+  const { person, event, phase, scene } = view,
+    id = person.id,
+    shape = shapes.get(id);
+  if (!shape) return;
+  const left = handPoint(shape, false),
+    right = handPoint(shape, true);
+  const hands = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+  const scale = projectPoint(scene, view.x, view.y).scale;
+  if (phase === "active" && event) {
+    if (event.kind === "device")
+      phone(
+        ops,
+        id,
+        hands.x + (event.variant ? -2 : 2),
+        hands.y + 1,
+        event.variant === 1,
+        scale,
       );
+    else if (
+      event.kind === "notes" ||
+      (event.kind === "restroom" && event.variant === 0)
+    )
+      material(
+        ops,
+        id,
+        hands.x + (event.variant ? -3 : 3),
+        hands.y + 1,
+        event.variant ? -1 : 1,
+        scale,
+      );
+    else if (event.kind === "passing" || event.kind === "restroom") {
+      if (event.actors[0] !== id) return;
+      const other = shapes.get(event.actors[1]);
       if (!other) return;
-      const q = projectPoint(scene, other.x, other.y);
-      const x = (p.x + q.x) / 2 + Math.sin(t * 2) * 1.5,
-        y = p.y + 12;
-      arm(
-        ops,
-        id,
-        [p.x + (q.x > p.x ? 17 : -17), p.y - 4],
-        [x + (q.x > p.x ? -6 : 6), y + 2],
-        outfit,
+      const otherHead = other.head!;
+      const head = shape.head!;
+      const from = handPoint(shape, otherHead.x > head.x),
+        to = handPoint(other, head.x > otherHead.x);
+      const progress = smooth(
+        (tick - event.start) / Math.max(1, event.end - event.start),
       );
-      material(ops, id, x, y, 1, p.scale);
+      material(
+        ops,
+        progress < 0.5 ? id : event.actors[1],
+        from.x + (to.x - from.x) * progress,
+        from.y + (to.y - from.y) * progress - 2 * Math.sin(progress * Math.PI),
+        1,
+        scale,
+      );
     } else if (event.kind === "peeking") {
-      // 身体照片实际向邻卷探身；写字手仍落在自己的卷面上。
-      const dir = event.variant === 0 ? 1 : -1;
-      arm(
-        ops,
-        id,
-        [p.x + dir * 30, p.y - 3],
-        [p.x + dir * 8, p.y + 20],
-        outfit,
-      );
+      const hand = right;
       ops.push({
         shape: {
           kind: "line",
-          points: [p.x + dir * 8, p.y + 20, p.x + dir * 13, p.y + 17],
+          points: [hand.x - 1, hand.y + 1, hand.x + 4, hand.y - 3],
         },
-        stroke: "#303b3e",
-        width: 1.1,
+        stroke: "#30383a",
+        width: 1.0,
         actorId: id,
       });
-    } else if (event.kind === "restroom") {
-      let x = p.x,
-        y = p.y + 5;
-      if (event.variant && event.actors.length > 1) {
-        const other = actors.find(
-          (a) => a.person.id !== id && event.actors.includes(a.person.id),
-        );
-        if (other) {
-          const q = projectPoint(scene, other.x, other.y);
-          x = (p.x + q.x) / 2;
-          y = p.y + 4;
-          arm(
-            ops,
-            id,
-            [p.x + (q.x > p.x ? 12 : -12), p.y - 13],
-            [x + (q.x > p.x ? -6 : 6), y + 1],
-            outfit,
-          );
-        }
-      }
-      material(ops, id, x, y, 1, p.scale);
     }
-  } else if (view.action === "returnPen" && scene < 4) {
-    const dir = person.col < 3 ? 1 : -1;
-    const x = p.x + dir * 38,
-      y = p.y + 10;
-    arm(ops, id, [p.x + dir * 16, p.y - 5], [x, y], outfit);
-    ops.push({
-      shape: { kind: "line", points: [x - 5, y, x + 7, y - 1] },
-      stroke: "#3f6d83",
-      width: 2,
-      actorId: id,
-    });
-    ops.push({
-      shape: { kind: "line", points: [x - 5, y - 0.4, x + 4, y - 1.3] },
-      stroke: "#a6bfc4",
-      width: 0.6,
-      actorId: id,
-    });
-  } else if (view.action === "thinking" && scene < 4) {
-    arm(ops, id, [p.x + 17, p.y - 6], [p.x + 9, p.y - 18], outfit);
-  } else if (view.action === "clock" && scene < 4) {
-    arm(ops, id, [p.x - 15, p.y - 5], [p.x - 8, p.y + 4], outfit);
-  } else if (view.action === "washing" && scene >= 4) {
-    const dy = p.y - 5;
-    for (const dx of [-7, 7])
-      arm(ops, id, [p.x + dx * 1.6, p.y - 16], [p.x + dx, dy], outfit);
-    ops.push({
-      shape: { kind: "line", points: [p.x - 3, dy, p.x + 4, dy + 1] },
-      stroke: "#b7cbc857",
-      width: 1.1,
-      blocks: false,
-    });
+  } else if (scene < 4) {
+    const hand = person.col < 3 ? right : left;
+    const returning = view.action === "returnPen";
+    if (view.action === "writing" || returning)
+      ops.push({
+        shape: {
+          kind: "line",
+          points: [hand.x - 1, hand.y + 1, hand.x + 4, hand.y - 2],
+        },
+        stroke: returning ? "#3f6d83" : "#394044",
+        width: returning ? 1.9 : 0.8,
+        actorId: id,
+      });
   }
 }
 
@@ -598,7 +556,10 @@ export function sceneGeometry(
   tick: number,
   scene: number,
   caught: ReadonlySet<string> = new Set(),
+  records: readonly RecordEntry[] = [],
 ): { ops: DrawOp[]; actors: ActorView[]; backgroundCount: number } {
+  if (plan.config.visualVersion === "photo-3")
+    return photoGeometry(plan, tick, scene, caught);
   if (plan.config.visualVersion === "cctv-2")
     return monitorGeometry(plan, tick, scene, caught);
   if (plan.config.visualVersion !== VISUAL_VERSION)
@@ -611,8 +572,10 @@ export function sceneGeometry(
   const sourceActors = actorViews(plan, tick, caught).filter(
     (a) => a.scene === scene,
   );
-  const actors = sourceActors.map((a) => {
-    const e = a.event;
+  const actors = sourceActors.map((original) => {
+    const a = publicVisualView(plan, original, tick);
+    const physical = physicalEvent(plan, a.person, tick, records),
+      e = physical?.event;
     if (
       scene < 4 ||
       !e ||
@@ -621,17 +584,19 @@ export function sceneGeometry(
       e.actors.length < 2
     )
       return a;
-    const other = sourceActors.find(
+    const otherSource = sourceActors.find(
       (b) => b.person.id !== a.person.id && e.actors.includes(b.person.id),
     );
-    if (!other) return a;
-    // 先自然靠近再交换，避免在原有等候位之间绘制不合人体比例的长臂。
-    const progress = Math.max(
-      0,
-      Math.min(1, (tick - e.prepare) / Math.max(1, e.start - e.prepare)),
-    );
-    return { ...a, x: a.x + (other.x - a.x) * 0.2 * progress };
+    const other = otherSource
+      ? publicVisualView(plan, otherSource, tick)
+      : undefined;
+    return other
+      ? { ...a, x: a.x + (other.x - a.x) * 0.25 * physical!.weight }
+      : a;
   });
+  const shapes = new Map(
+    actors.map((a) => [a.person.id, body(a, tick, plan, records)]),
+  );
   if (scene < 4) {
     for (const person of plan.people
       .filter((p) => p.room === scene)
@@ -650,48 +615,27 @@ export function sceneGeometry(
         ),
       );
       const actor = actors.find((a) => a.person.id === person.id);
-      const shape = actor ? body(actor, tick) : undefined;
+      const shape = actor ? shapes.get(person.id) : undefined;
       if (shape) ops.push({ shape, actorId: person.id });
       desk(ops, scene, person);
       if (shape && actor) {
-        forearms(ops, shape, actor, tick);
-        actions(ops, actor, tick, actors);
+        forearms(ops, shape, actor);
       }
+      // 物品位于本排桌面和双方手前；不能在传到邻座时被后画桌面吞掉。
+      if (person.col === 3)
+        for (const rowActor of actors.filter(
+          (a) => a.person.row === person.row,
+        ))
+          actions(ops, rowActor, tick, shapes);
     }
   } else {
     for (const actor of [...actors].sort((a, b) => a.y - b.y || a.x - b.x)) {
       const p = projectPoint(scene, actor.x, actor.y),
-        shape = body(actor, tick);
+        shape = shapes.get(actor.person.id)!;
       shadow(ops, p.x, p.y + 54, 14, 4);
-      if (actor.action === "walking") {
-        ops.push({
-          shape: { ...shape, clip: [0, 0, 1, 0.72] },
-          actorId: actor.person.id,
-        });
-        const step = Math.sin(tick / 3 + actor.person.id) * 1.4;
-        ops.push({
-          shape: {
-            ...shape,
-            role: undefined,
-            head: undefined,
-            y: shape.y + step,
-            clip: [0, 0.72, 0.5, 0.28],
-          },
-          actorId: actor.person.id,
-        });
-        ops.push({
-          shape: {
-            ...shape,
-            role: undefined,
-            head: undefined,
-            y: shape.y - step,
-            clip: [0.5, 0.72, 0.5, 0.28],
-          },
-          actorId: actor.person.id,
-        });
-      } else ops.push({ shape, actorId: actor.person.id });
-      actions(ops, actor, tick, actors);
+      ops.push({ shape, actorId: actor.person.id });
     }
+    for (const actor of actors) actions(ops, actor, tick, shapes);
   }
   return {
     ops,
@@ -703,6 +647,15 @@ export function sceneGeometry(
 export function contains(op: DrawOp, x: number, y: number): boolean {
   const s = op.shape;
   if (s.kind === "image") {
+    if (s.mesh) {
+      const uv = meshUV(s.mesh, x, y);
+      if (!uv || (s.part === "arms" && !inArmRegion(uv.u, uv.v))) return false;
+      return containsPhoto(
+        { ...s, x: 0, y: 0, w: 1, h: 1, flipX: false },
+        uv.u,
+        uv.v,
+      );
+    }
     if (s.clip) {
       const u = (x - s.x) / s.w;
       const v = (y - s.y) / s.h;
@@ -762,6 +715,7 @@ export function pick(
   x: number,
   y: number,
 ): number | null {
+  if (x < 0 || y < 0 || x > WORLD_W || y > WORLD_H) return null;
   // 逆绘制顺序查找，家具和前景人物会真实遮挡后方命中区。
   for (let i = ops.length - 1; i >= 0; i--) {
     const op = ops[i];

@@ -10,7 +10,8 @@
     "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
     "test:browser": "npm run build && node tests/browser.mjs",
     "test:stress": "npm test && node tests/stress.mjs",
-    "test:realtime": "npm run build && node tests/browser.mjs --realtime"
+    "test:realtime": "npm run build && node tests/browser.mjs --realtime",
+    "test:motion": "npm run build && node tests/motion-browser.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

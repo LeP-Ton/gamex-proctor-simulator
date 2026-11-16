@@ -7,12 +7,13 @@ import {
 } from "../src/render/photo-assets.js";
 import type { PhotoImageShape } from "../src/render/photo-assets.js";
 
-const peopleAssets = ["people", "peopleB"] as const;
+const peopleAssets = ["people", "peopleB", "peopleC"] as const;
 
-test("32 张人物帧的真实头部在正向和镜像中均可命中，透明四角不命中", () => {
+test("56 张人物帧的真实头部在正向和镜像中均可命中，透明四角不命中", () => {
   for (const asset of peopleAssets) {
-    assert.equal(PHOTO_ASSETS[asset].frames.length, 16);
-    for (let frame = 0; frame < 16; frame++) {
+    const frameCount = asset === "peopleC" ? 24 : 16;
+    assert.equal(PHOTO_ASSETS[asset].frames.length, frameCount);
+    for (let frame = 0; frame < frameCount; frame++) {
       const metadata = PHOTO_ASSETS[asset].frames[frame];
       assert.ok(metadata.headX !== undefined && metadata.headY !== undefined);
       for (const flipX of [false, true]) {
@@ -52,7 +53,7 @@ test("32 张人物帧的真实头部在正向和镜像中均可命中，透明�
 
 test("照片透明拾取在非等比缩放、平移和镜像后保持同一源像素结果", () => {
   for (const asset of peopleAssets)
-    for (let frame = 0; frame < 16; frame++) {
+    for (let frame = 0; frame < PHOTO_ASSETS[asset].frames.length; frame++) {
       const metadata = PHOTO_ASSETS[asset].frames[frame];
       const original: PhotoImageShape = {
         asset,
