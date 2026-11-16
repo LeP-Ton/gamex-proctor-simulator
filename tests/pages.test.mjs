@@ -1,89 +1,97 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile, access } from "node:fs/promises";
+import { access, copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
 import { buildPages } from "../scripts/build-pages.mjs";
 
-const illustratedSha = "1".repeat(40), realisticSha = "2".repeat(40);
-
 async function fixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "proctor-pages-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const illustratedDist = path.join(root, "illustrated-dist"), realisticDist = path.join(root, "realistic-dist");
-  for (const [directory, text] of [[illustratedDist, "插画首版"], [realisticDist, "写实新版"]]) {
-    await mkdir(path.join(directory, "assets"), { recursive: true });
-    await writeFile(path.join(directory, "index.html"), `<title>${text}</title><link href="./assets/app.css" rel="stylesheet"><script type="module" src="./assets/app.js"></script>`);
-    await writeFile(path.join(directory, "assets/app.js"), `document.title=${JSON.stringify(text)};`);
-    await writeFile(path.join(directory, "assets/app.css"), "body{color:#123}");
-    await writeFile(path.join(directory, "favicon.svg"), `<svg xmlns="http://www.w3.org/2000/svg"><title>${text}</title></svg>`);
-  }
-  return { illustratedDist, realisticDist, output: path.join(root, "site"), illustratedSha, realisticSha };
+  const directory = await mkdtemp(path.join(os.tmpdir(), "proctor-portal-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const siteDir = path.join(directory, "source");
+  await mkdir(siteDir);
+  await copyFile(new URL("../sites/index.html", import.meta.url), path.join(siteDir, "index.html"));
+  await copyFile(new URL("../sites/style.css", import.meta.url), path.join(siteDir, "style.css"));
+  const faviconSource = path.join(directory, "favicon.svg");
+  await writeFile(faviconSource, '<svg xmlns="http://www.w3.org/2000/svg"><title>版本选择页</title></svg>');
+  return { output: path.join(directory, "output"), siteDir, faviconSource, directory };
+}
+function runRedirect(html, search, hash = "#复盘片段") {
+  let result;
+  const location = { href: `https://example.test/old/${search}${hash}`, search, hash, replace(value) { result = value; } };
+  vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], { location, URL, URLSearchParams });
+  return result;
 }
 
-test("双版本完整组装、源目录独立，清单准确标记各自分支与固定提交", async t => {
+test("只发布选择页与独立站点清单，不需要游戏构建或固定游戏提交", async t => {
   const options = await fixture(t);
   const manifest = await buildPages(options);
-  for (const version of ["illustrated", "realistic"]) {
-    const source = options[`${version}Dist`];
-    for (const file of ["index.html", "assets/app.js", "assets/app.css", "favicon.svg"])
-      assert.equal(await readFile(path.join(options.output, version, file), "utf8"), await readFile(path.join(source, file), "utf8"));
-    assert.equal(manifest.versions[version].branch, `codex/${version}`);
-    assert.equal(manifest.versions[version].commit, options[`${version}Sha`]);
-    assert.equal(manifest.versions[version].path, `${version}/`);
-    assert.equal(manifest.versions[version].storageKey, version === "illustrated" ? "gamex-proctor-illustrated-v1" : "gamex-proctor-v1");
-  }
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.mode, "independent-sites");
   assert.deepEqual(JSON.parse(await readFile(path.join(options.output, "manifest.json"), "utf8")), manifest);
+  const html = await readFile(path.join(options.output, "index.html"), "utf8");
+  for (const version of ["illustrated", "realistic"]) {
+    const entry = manifest.versions[version];
+    assert.equal(entry.sourceRepository, "LeP-Ton/gamex-proctor-simulator");
+    assert.equal(entry.sourceBranch, `codex/${version}`);
+    assert.equal(entry.deploymentRepository, `LeP-Ton/gamex-proctor-${version}`);
+    assert.equal(entry.url, `https://lep-ton.github.io/gamex-proctor-${version}/`);
+    assert.equal(entry.provenanceUrl, `${entry.url}deployment.json`);
+    assert.equal(entry.sourceCommit, undefined, "选择页不固化或虚构独立站点的当前提交");
+    assert.ok(html.includes(`href="${entry.url}"`));
+  }
+  assert.notEqual(manifest.versions.illustrated.deploymentRepository, manifest.versions.realistic.deploymentRepository);
+  assert.notEqual(manifest.versions.illustrated.storageKey, manifest.versions.realistic.storageKey);
   await access(path.join(options.output, ".nojekyll"));
-  const portal = await readFile(path.join(options.output, "index.html"), "utf8");
-  assert.match(portal, /href="\.\/illustrated\/"/);
-  assert.match(portal, /href="\.\/realistic\/"/);
-  assert.match(portal, /href="\.\/style\.css"/);
-  await access(path.join(options.output, "style.css"));
-  assert.match(portal, /href="\.\/favicon\.svg"/);
-  assert.equal(await readFile(path.join(options.output, "favicon.svg"), "utf8"), await readFile(path.join(options.realisticDist, "favicon.svg"), "utf8"));
+  assert.equal(await readFile(path.join(options.output, "style.css"), "utf8"), await readFile(path.join(options.siteDir, "style.css"), "utf8"));
+  assert.equal(await readFile(path.join(options.output, "favicon.svg"), "utf8"), await readFile(options.faviconSource, "utf8"));
+  await assert.rejects(access(path.join(options.output, "realistic/assets")), { code: "ENOENT" });
+  await assert.rejects(access(path.join(options.output, "illustrated/assets")), { code: "ENOENT" });
 });
 
-test("任一版缺失或地址不适用于子路径时，保留已有完整输出", async t => {
+test("旧根查询和两子目录书签转独立站点，完整保留查询与片段", async t => {
+  const options = await fixture(t);
+  const manifest = await buildPages(options);
+  const root = await readFile(path.join(options.output, "index.html"), "utf8");
+  for (const query of ["?v=motion-4", "?debug=1&seed=%E8%80%83%E5%9C%BA", "?v=rig-5&debug=1&x=a%26b"]) {
+    assert.equal(runRedirect(root, query), new URL(`${manifest.versions.realistic.url}${query}#复盘片段`).href);
+  }
+  assert.equal(runRedirect(root, ""), undefined);
+  assert.equal(runRedirect(root, "?from=bookmark"), undefined);
+  for (const version of ["illustrated", "realistic"]) {
+    const html = await readFile(path.join(options.output, version, "index.html"), "utf8");
+    for (const query of ["", "?debug=1", "?v=photo-3&seed=%E4%B8%AD%E6%96%87"]) assert.equal(runRedirect(html, query), new URL(`${manifest.versions[version].url}${query}#复盘片段`).href);
+    assert.ok(html.includes(`href="${manifest.versions[version].url}"`), "禁用脚本时仍有明确的继续访问链接");
+  }
+});
+
+test("缺少选择页资源或存在越界资源时，保留已有完整输出", async t => {
   const options = await fixture(t);
   await buildPages(options);
   const previous = await readFile(path.join(options.output, "manifest.json"), "utf8");
-  await writeFile(path.join(options.output, "保留.txt"), "仍是上一份发布");
-  await rm(path.join(options.realisticDist, "index.html"));
-  await assert.rejects(buildPages(options), /写实新版.*index\.html/);
+  await writeFile(path.join(options.output, "保留.txt"), "上一份完整产物");
+  await rm(path.join(options.siteDir, "style.css"));
+  await assert.rejects(buildPages(options), /普通源文件/);
+  assert.equal(await readFile(path.join(options.output, "保留.txt"), "utf8"), "上一份完整产物");
+  await writeFile(path.join(options.siteDir, "style.css"), "body{color:#123}");
+  const html = await readFile(path.join(options.siteDir, "index.html"), "utf8");
+  await writeFile(path.join(options.siteDir, "index.html"), html.replace("./style.css", "../private.css"));
+  await assert.rejects(buildPages(options), /限定.*相对地址/);
   assert.equal(await readFile(path.join(options.output, "manifest.json"), "utf8"), previous);
-  assert.equal(await readFile(path.join(options.output, "保留.txt"), "utf8"), "仍是上一份发布");
-  await writeFile(path.join(options.realisticDist, "index.html"), '<script src="/assets/app.js"></script>');
-  await assert.rejects(buildPages(options), /相对地址/);
-  assert.equal(await readFile(path.join(options.output, "保留.txt"), "utf8"), "仍是上一份发布");
-});
-
-test("拒绝未锁定分支名和越出版本目录的资源，正常重建一次替换两版", async t => {
-  const options = await fixture(t);
-  await assert.rejects(buildPages({ ...options, illustratedSha: "codex/illustrated" }), /完整提交 SHA/);
+  await writeFile(path.join(options.siteDir, "index.html"), html);
   await buildPages(options);
-  await writeFile(path.join(options.output, "旧文件.txt"), "应在成功重建后移除");
-  await writeFile(path.join(options.illustratedDist, "index.html"), '<script src="../other.js"></script>');
-  await assert.rejects(buildPages(options), /越出/);
-  await access(path.join(options.output, "旧文件.txt"));
-  await writeFile(path.join(options.illustratedDist, "index.html"), '<script src="./assets/app.js"></script>');
-  await buildPages({ ...options, realisticSha: "3".repeat(40) });
-  await assert.rejects(access(path.join(options.output, "旧文件.txt")), { code: "ENOENT" });
-  assert.equal(JSON.parse(await readFile(path.join(options.output, "manifest.json"))).versions.realistic.commit, "3".repeat(40));
+  await assert.rejects(access(path.join(options.output, "保留.txt")), { code: "ENOENT" });
 });
 
-test("旧根目录书签跳写实版并完整保留查询与片段，普通首页停留选择页", async () => {
-  const html = await readFile(new URL("../sites/index.html", import.meta.url), "utf8");
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-  for (const search of ["?v=motion-4", "?debug=1&seed=%E8%80%83%E5%9C%BA", "?v=photo-3&debug=1"]) {
-    let result;
-    const location = { href: `https://example.test/repo/${search}#复盘`, search, hash: "#复盘", replace(url) { result = url; } };
-    vm.runInNewContext(script, { location, URL, URLSearchParams });
-    const expected = new URL(`https://example.test/repo/realistic/${search}#复盘`).href;
-    assert.equal(result, expected);
-  }
-  let replaced = false;
-  vm.runInNewContext(script, { location: { href: "https://example.test/repo/", search: "", hash: "", replace() { replaced = true; } }, URL, URLSearchParams });
-  assert.equal(replaced, false);
+test("拒绝覆盖源目录、根目录及符号链接输出，防止路径别名绕过边界", async t => {
+  const options = await fixture(t);
+  for (const output of [path.parse(options.directory).root, options.siteDir, path.join(options.siteDir, "dist"), options.directory]) await assert.rejects(buildPages({ ...options, output }), /根目录|不能互相包含/);
+  const alias = path.join(options.directory, "alias");
+  await symlink(options.siteDir, alias, "dir");
+  await assert.rejects(buildPages({ ...options, output: path.join(alias, "nested") }), /不能互相包含/);
+  const outputLink = path.join(options.directory, "output-link");
+  await symlink(options.siteDir, outputLink, "dir");
+  await assert.rejects(buildPages({ ...options, output: outputLink }), /不能是文件或符号链接/);
+  assert.ok((await readFile(path.join(options.siteDir, "index.html"), "utf8")).includes("监考模拟器"));
 });

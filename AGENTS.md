@@ -1,22 +1,18 @@
 # 项目长期约定
 
-- 项目：GameX《监考模拟器》，中文桌面浏览器单机观察游戏。
-- 技术栈：TypeScript、Canvas 2D、原生 DOM、Vite；无远程素材或推理服务依赖。
-- 沟通、文档和新增注释使用中文。需求记录入口为 `.agentdocs/index.md`。
-- `src/engine/` 负责种子随机、调度、世界状态、固定步长、举报及复盘；不依赖 DOM。
-- `src/render/` 负责共享场景几何、绘制与按绘制顺序拾取；隐藏事件状态不得改变正常悬停。
-- `src/ui/` 与 `src/main.ts` 负责界面及输入；`src/storage.ts` 管理本地成绩。
-- `main` 是版本选择页与组合发布的编排分支；游戏源码分别在 `codex/illustrated`（插画首版）和 `codex/realistic`（写实新版）。日常写实开发默认使用后者，插画版改动在前者进行；修改前检查分支和工作区。
-- 游戏源码分支使用 `npm run dev` 启动、`npm run build` 构建、`npm test` 运行核心测试。`main` 的站点检查为 `npm run test:pages`，组合产物的浏览器检查为 `npm run test:pages-browser`；main 保留的应用源码用于历史参考，线上游戏以固定版本分支提交为准。
-- 计分时钟为整数固定步长；有效区间为开始包含、结束不包含。计分事件安排与装饰行为随机流独立。
-- 复盘必须从实际种子和输入日志重建，禁止修改原局；正式界面不泄露目标或倒计时。
-- 参数与规则版本集中在 `src/engine/config.ts`。规则变更须更新版本，避免混排成绩。
-- 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
-- GitHub Pages 只发布一份同时包含两版的产物：根目录选择页、`illustrated/`、`realistic/`。`main` 的 `.github/workflows/pages.yml` 先解析两个分支为固定提交，分别测试构建，再统一组装、上传和部署；任一版失败均不发布。
-- 版本分支的薄工作流通过 `workflow_dispatch` 请求 main 发布，不能分别覆盖 Pages；main 执行部署以兼容 `github-pages` 环境的分支策略。`manifest.json` 记录两版分支、完整 SHA、路径与保存键。
-- GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容两个子目录；根目录旧 `?v=...` / `?debug=...` 书签进入写实版并保留查询和片段。
-- 两个子路径同源，必须显式隔离存档：插画版使用 `gamex-proctor-illustrated-v1`，写实版保留 `gamex-proctor-v1`。不得让旧插画界面读取或改写新版记录。
-- `.npmrc` 和锁文件使用公开 npm 源，避免把本机内网镜像写入外部构建所需的下载地址。
-- 写实版画面为本地照片质感素材与 Canvas 动作组合；素材位于 `public/assets/photo-3/`，来源及提示词同目录保存。运行时不调用 AI；图片解码完成后才允许开局，拾取共用实际透明轮廓与分层遮挡。
-- 视觉条件由 `visualVersion` 隔离成绩，不纳入计分事件随机流；经典版及 V2 记录分别使用冻结的 `legacy-geometry.ts`、`monitor-geometry.ts` 复盘。素材裁剪与掩码由可选离线脚本生成，不应手改生成数据。
-- 连贯动作由 `candidate-motion.ts` 按种子、tick 和只读举报记录重建；`photo-mesh.ts` 共用正反映射，`mesh-renderer.ts` 批量生成 GPU 图集并提供 Canvas 降级。V3 使用 `photo-geometry.ts` 冻结复盘；不要为新画面修改旧版共享的正常行为和迁移。
+- 项目：GameX《监考模拟器》，中文桌面浏览器单机观察游戏。沟通、文档和新增注释使用中文，需求入口为 `.agentdocs/index.md`。
+- 权威源码仓库为 `LeP-Ton/gamex-proctor-simulator`。`codex/illustrated` 维护插画首版，`codex/realistic` 维护写实版；日常写实开发默认后者，修改前检查分支和已有差异。
+- `main` 仅维护版本选择页、旧地址跳转和发布辅助工具。main 保留的游戏源码属于历史快照，不直接发布；具体实现和限制以版本分支的 AGENTS/README 为准。
+- 两个独立公开部署仓库为 `LeP-Ton/gamex-proctor-illustrated` 的 `codex/illustrated`、`LeP-Ton/gamex-proctor-realistic` 的 `codex/realistic`。各自测试、构建、上传并部署，不能请求 main 联合构建或互相覆盖。
+- main 的 `.github/workflows/pages.yml` 只运行选择页测试、`scripts/build-pages.mjs --output dist` 和本仓库 Pages 部署，不检出游戏分支，不安装游戏依赖。
+- main 验证命令为 `npm run test:pages`、`npm run build:pages -- --output dist`，仅需 Node。旧 `tests/pages-browser.mjs` 是历史组合站点验收脚本，不适用于当前选择页，不再列为 main 命令。
+- `sites/` 管选择页；产物仅含根 HTML/CSS/favicon、独立站点清单及两个旧子路径跳转。构建先暂存，完整检查后替换输出；失败保留前产物，拒绝覆盖源目录或通过路径别名越界。
+- 游戏更新先进入相应权威版本分支并验证，再用 `scripts/sync-independent-pages.mjs <illustrated|realistic> <完整源码SHA>` 同步单一镜像。脚本限制两个公开仓库、非强制推进 ref、拒绝未知远端 HEAD，不存储或输出凭据。
+- 同步状态默认位于忽略的 `artifacts/independent-pages/`。首次移交须复制已核实的两个 state 文件；状态缺失或远端另有变更时先核实 Git 历史，不能自动接管未知提交。
+- main 的 `manifest.json` 只映射独立部署仓库、源分支和 URL；当前已发布完整源 SHA 以每站 `deployment.json` 为准，不在选择页固化或虚构更新后的提交。
+- 旧根目录 `?v=...` / `?debug=...` 和 `/realistic/` 跳独立写实站，`/illustrated/` 跳独立插画站，均保留查询和片段。
+- 两站同属 `lep-ton.github.io` 的同一 origin，路径不隔离 localStorage。插画保存键 `gamex-proctor-illustrated-v1`，写实保留 `gamex-proctor-v1`，不能混写或让旧界面解析新版局。
+- 游戏共用 TypeScript、原生 DOM、Vite；`src/engine/` 管固定步长、调度、计分和复盘，`src/render/` 管实际绘制拾取，`src/main.ts` 管界面输入，`src/storage.ts` 管本地成绩。游戏命令在对应版本分支执行。
+- 计分使用整数固定步长，事件区间开始包含、结束不包含；复盘按保存计划和真实输入重建，禁止修改原局。规则、视觉、布局、辅助条件分别隔离成绩，旧播放器应冻结保留。
+- 实际代码变更须维护所属需求 README 和阶段记录；构建、自动化、人工视觉与用户体验验收分别记录。
+- `.npmrc` 和锁文件使用公开 npm 地址。GitHub 远程名为 `github`，与原 Sites 私有源仓库分离，不扩大原 Sites 访问范围。

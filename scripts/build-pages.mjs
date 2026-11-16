@@ -1,127 +1,102 @@
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-const defaultSite = fileURLToPath(new URL("../sites/", import.meta.url));
-const branches = { illustrated: "codex/illustrated", realistic: "codex/realistic" };
-const names = { illustrated: "插画首版", realistic: "写实新版" };
-const storageKeys = { illustrated: "gamex-proctor-illustrated-v1", realistic: "gamex-proctor-v1" };
-
+const root = fileURLToPath(new URL("..", import.meta.url));
+const versions = {
+  illustrated: {
+    name: "插画首版", sourceRepository: "LeP-Ton/gamex-proctor-simulator", sourceBranch: "codex/illustrated",
+    deploymentRepository: "LeP-Ton/gamex-proctor-illustrated", url: "https://lep-ton.github.io/gamex-proctor-illustrated/",
+    provenanceUrl: "https://lep-ton.github.io/gamex-proctor-illustrated/deployment.json", storageKey: "gamex-proctor-illustrated-v1",
+  },
+  realistic: {
+    name: "写实新版", sourceRepository: "LeP-Ton/gamex-proctor-simulator", sourceBranch: "codex/realistic",
+    deploymentRepository: "LeP-Ton/gamex-proctor-realistic", url: "https://lep-ton.github.io/gamex-proctor-realistic/",
+    provenanceUrl: "https://lep-ton.github.io/gamex-proctor-realistic/deployment.json", storageKey: "gamex-proctor-v1",
+  },
+};
 function inside(parent, child) {
-  const relative = path.relative(parent, child);
-  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+  const value = path.relative(parent, child);
+  return value === "" || (!value.startsWith(`..${path.sep}`) && value !== ".." && !path.isAbsolute(value));
 }
-
-async function exists(file) {
-  try { await lstat(file); return true; }
-  catch (error) { if (error.code === "ENOENT") return false; throw error; }
+async function info(file) {
+  try { return await lstat(file); } catch (error) { if (error.code === "ENOENT") return undefined; throw error; }
 }
-
-async function rejectSymlinks(directory) {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const file = path.join(directory, entry.name);
-    if (entry.isSymbolicLink()) throw new Error(`构建产物不能包含符号链接：${file}`);
-    if (entry.isDirectory()) await rejectSymlinks(file);
+async function regularFile(file) {
+  const value = await info(file);
+  if (!value?.isFile() || value.isSymbolicLink()) throw new Error(`缺少普通源文件，或源文件为符号链接：${file}`);
+  return readFile(file);
+}
+async function canonical(file) {
+  const tail = [];
+  let cursor = file;
+  while (!(await info(cursor))) { tail.unshift(path.basename(cursor)); cursor = path.dirname(cursor); }
+  return path.resolve(await realpath(cursor), ...tail);
+}
+function validateResources(html) {
+  for (const [, reference] of html.matchAll(/<(?:script|link|img|source|video)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) {
+    const clean = reference.split(/[?#]/, 1)[0];
+    if (!["./style.css", "./favicon.svg"].includes(clean)) throw new Error(`选择页资源必须限定在已打包的相对地址：${reference}`);
   }
+  for (const version of Object.values(versions)) if (!html.includes(`href="${version.url}"`)) throw new Error(`选择页缺少独立站点入口：${version.url}`);
+}
+function redirect(version) {
+  const target = versions[version];
+  return `<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${target.name} · 独立站点</title><link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="../style.css"><script>
+// 兼容原子目录书签，查询参数与复盘片段完整带到独立站点。
+const target = new URL(${JSON.stringify(target.url)});
+target.search = location.search;
+target.hash = location.hash;
+location.replace(target.href);
+</script></head><body><main><header class="page-heading"><h1>${target.name}已独立部署</h1><p>正在前往独立试玩站点。</p></header><a class="play" href="${target.url}">继续访问${target.name}</a></main></body></html>\n`;
 }
 
-async function validateDist(directory, label) {
-  let html;
-  try { html = await readFile(path.join(directory, "index.html"), "utf8"); }
-  catch { throw new Error(`${label}构建目录缺少可读取的 index.html：${directory}`); }
-  await rejectSymlinks(directory);
-  // 两个应用将位于子路径；根路径资源会误取选择页或另一版本的文件。
-  const resources = [...html.matchAll(/<(?:script|link|img|source|video)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)];
-  for (const [, reference] of resources) {
-    if (reference.startsWith("/")) throw new Error(`${label}资源必须使用相对地址：${reference}`);
-    if (/^(?:https?:|data:|blob:|#)/i.test(reference)) continue;
-    if (/^[a-z][a-z\d+.-]*:/i.test(reference)) throw new Error(`${label}不支持此资源地址：${reference}`);
-    const clean = decodeURIComponent(reference.split(/[?#]/, 1)[0]);
-    if (!clean) continue;
-    const file = path.resolve(directory, clean);
-    if (!inside(directory, file)) throw new Error(`${label}资源越出本版本目录：${reference}`);
-    let info;
-    try { info = await stat(file); } catch { throw new Error(`${label}缺少实际资源：${reference}`); }
-    if (!info.isFile()) throw new Error(`${label}资源不是文件：${reference}`);
-  }
-}
-
-/** 只有两版都验证并完整组装后才替换输出目录，失败不破坏已生成站点。 */
+/** main 只生成选择页与旧地址跳转，不检出、测试或打包两个游戏。 */
 export async function buildPages(options) {
   const output = path.resolve(options.output);
-  const siteDir = path.resolve(options.siteDir ?? defaultSite);
-  const versions = {
-    illustrated: { directory: path.resolve(options.illustratedDist), commit: options.illustratedSha },
-    realistic: { directory: path.resolve(options.realisticDist), commit: options.realisticSha },
+  const siteDir = path.resolve(options.siteDir ?? path.join(root, "sites"));
+  const faviconSource = path.resolve(options.faviconSource ?? path.join(root, "public/favicon.svg"));
+  const existing = await info(output);
+  if (existing && (!existing.isDirectory() || existing.isSymbolicLink())) throw new Error("输出必须是普通目录，不能是文件或符号链接。");
+  const [actualOutput, actualSite, actualFavicon] = await Promise.all([canonical(output), canonical(siteDir), canonical(faviconSource)]);
+  if (path.dirname(actualOutput) === actualOutput) throw new Error("不能把文件系统根目录作为输出目录。");
+  if (inside(actualSite, actualOutput) || inside(actualOutput, actualSite) || inside(actualOutput, actualFavicon)) throw new Error("选择页来源、图标与输出目录不能互相包含。");
+  const [html, css, favicon] = await Promise.all([
+    regularFile(path.join(siteDir, "index.html")), regularFile(path.join(siteDir, "style.css")), regularFile(faviconSource),
+  ]);
+  validateResources(html.toString("utf8"));
+  const manifest = {
+    schemaVersion: 2, mode: "independent-sites", portalUrl: "https://lep-ton.github.io/gamex-proctor-simulator/", versions,
+    legacyPaths: { "illustrated/": versions.illustrated.url, "realistic/": versions.realistic.url },
   };
-  if (path.dirname(output) === output) throw new Error("不能把文件系统根目录作为输出目录。");
-  for (const [version, source] of Object.entries(versions)) {
-    if (!/^[a-f\d]{40}$/i.test(source.commit ?? "")) throw new Error(`${names[version]}必须传入已锁定的完整提交 SHA。`);
-    source.commit = source.commit.toLowerCase();
-    if (inside(source.directory, output) || inside(output, source.directory)) throw new Error("构建来源和输出目录不能互相包含。");
-    await validateDist(source.directory, names[version]);
-  }
-  if (inside(siteDir, output) || inside(output, siteDir)) throw new Error("选择页来源和输出目录不能互相包含。");
-  await readFile(path.join(siteDir, "index.html"), "utf8");
-  await readFile(path.join(siteDir, "style.css"), "utf8");
-  const favicons = [versions.realistic.directory, versions.illustrated.directory].map(directory => path.join(directory, "favicon.svg"));
-  let favicon;
-  for (const file of favicons) if (await exists(file)) { favicon = file; break; }
-  if (!favicon) throw new Error("两版构建产物均缺少 favicon.svg。");
-
   const parent = path.dirname(output);
   await mkdir(parent, { recursive: true });
   const staged = await mkdtemp(path.join(parent, ".pages-build-"));
   const backup = path.join(parent, `.pages-backup-${randomUUID()}`);
   let backedUp = false;
   try {
-    for (const [version, source] of Object.entries(versions)) {
-      await cp(source.directory, path.join(staged, version), { recursive: true });
-    }
-    await cp(path.join(siteDir, "index.html"), path.join(staged, "index.html"));
-    await cp(path.join(siteDir, "style.css"), path.join(staged, "style.css"));
-    await cp(favicon, path.join(staged, "favicon.svg"));
-    if (await exists(path.join(siteDir, "assets"))) await cp(path.join(siteDir, "assets"), path.join(staged, "assets"), { recursive: true });
-    const manifest = {
-      schemaVersion: 1,
-      versions: Object.fromEntries(Object.entries(versions).map(([version, source]) => [version, {
-        name: names[version], branch: branches[version], commit: source.commit, path: `${version}/`, storageKey: storageKeys[version],
-      }])),
-    };
-    await writeFile(path.join(staged, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-    await writeFile(path.join(staged, ".nojekyll"), "");
-    if (await exists(output)) { await rename(output, backup); backedUp = true; }
+    await Promise.all([
+      writeFile(path.join(staged, "index.html"), html), writeFile(path.join(staged, "style.css"), css),
+      writeFile(path.join(staged, "favicon.svg"), favicon), writeFile(path.join(staged, ".nojekyll"), ""),
+      writeFile(path.join(staged, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`),
+    ]);
+    for (const version of Object.keys(versions)) { await mkdir(path.join(staged, version)); await writeFile(path.join(staged, version, "index.html"), redirect(version)); }
+    if (await info(output)) { await rename(output, backup); backedUp = true; }
     try { await rename(staged, output); }
-    catch (error) {
-      if (backedUp) { await rename(backup, output); backedUp = false; }
-      throw error;
-    }
+    catch (error) { if (backedUp) { await rename(backup, output); backedUp = false; } throw error; }
     if (backedUp) await rm(backup, { recursive: true, force: true });
     return manifest;
   } finally { await rm(staged, { recursive: true, force: true }); }
 }
 
-function argumentsFromCLI(args) {
-  const known = new Map([
-    ["--illustrated-dist", "illustratedDist"], ["--realistic-dist", "realisticDist"],
-    ["--output", "output"], ["--illustrated-sha", "illustratedSha"], ["--realistic-sha", "realisticSha"],
-  ]);
-  const values = {};
-  for (let i = 0; i < args.length; i += 2) {
-    const key = known.get(args[i]);
-    if (!key || !args[i + 1] || args[i + 1].startsWith("--") || values[key]) throw new Error(`无效或重复参数：${args[i]}`);
-    values[key] = args[i + 1];
-  }
-  if ([...known.values()].some(key => !values[key])) throw new Error("须提供 --illustrated-dist、--realistic-dist、--output、--illustrated-sha、--realistic-sha。");
-  return values;
-}
-
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const options = argumentsFromCLI(process.argv.slice(2));
-    const manifest = await buildPages(options);
-    console.log(`已生成双版本 Pages：${path.resolve(options.output)}`);
-    for (const item of Object.values(manifest.versions)) console.log(`${item.name}：${item.branch} @ ${item.commit}`);
-  } catch (error) { console.error(`Pages 组装失败：${error.message}`); process.exitCode = 1; }
+    const args = process.argv.slice(2);
+    if (args.length !== 2 || args[0] !== "--output" || !args[1] || args[1].startsWith("--")) throw new Error("只接受 --output <选择页输出目录>。");
+    const manifest = await buildPages({ output: args[1] });
+    console.log(`已生成版本选择页：${path.resolve(args[1])}`);
+    for (const version of Object.values(manifest.versions)) console.log(`${version.name}独立站点：${version.url}`);
+  } catch (error) { console.error(`选择页构建失败：${error.message}`); process.exitCode = 1; }
 }
