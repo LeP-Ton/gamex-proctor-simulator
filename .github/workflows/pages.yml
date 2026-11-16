@@ -1,8 +1,8 @@
-name: 发布监考模拟器到 GitHub Pages
+name: 请求双版本 Pages 发布
 
 on:
   push:
-    branches: [main]
+    branches: [codex/illustrated, codex/realistic]
     paths:
       - "src/**"
       - "public/**"
@@ -13,56 +13,18 @@ on:
       - "package-lock.json"
       - ".npmrc"
       - "tsconfig*.json"
-      - ".github/workflows/pages.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:
-  contents: read
-
-concurrency:
-  group: github-pages
-  cancel-in-progress: false
+  actions: write
 
 jobs:
-  build:
-    name: 测试与构建
+  request:
+    name: 请求 main 联合发布两个版本
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: read
     steps:
-      - name: 检出源码
-        uses: actions/checkout@v7
-      - name: 配置 Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-          cache: npm
-      - name: 安装依赖
-        run: npm ci
-      - name: 运行核心测试
-        run: npm test
-      - name: 构建静态游戏
-        run: npm run build
-      - name: 配置 Pages
-        uses: actions/configure-pages@v6
-      - name: 上传构建产物
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist
-
-  deploy:
-    name: 部署公开试玩
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: 部署到 GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: 触发中央 Pages 工作流
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
