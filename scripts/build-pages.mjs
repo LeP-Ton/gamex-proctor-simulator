@@ -10,8 +10,13 @@ const versions = {
     deploymentRepository: "LeP-Ton/gamex-proctor-illustrated", url: "https://lep-ton.github.io/gamex-proctor-illustrated/",
     provenanceUrl: "https://lep-ton.github.io/gamex-proctor-illustrated/deployment.json", storageKey: "gamex-proctor-illustrated-v1",
   },
+  photo: {
+    name: "照片版 · 会话54", sourceRepository: "LeP-Ton/gamex-proctor-simulator", sourceBranch: "codex/photo",
+    deploymentRepository: "LeP-Ton/gamex-proctor-photo", url: "https://lep-ton.github.io/gamex-proctor-photo/",
+    provenanceUrl: "https://lep-ton.github.io/gamex-proctor-photo/deployment.json", storageKey: "gamex-proctor-photo-v1",
+  },
   realistic: {
-    name: "写实新版", sourceRepository: "LeP-Ton/gamex-proctor-simulator", sourceBranch: "codex/realistic",
+    name: "3D版 · 会话88", sourceRepository: "LeP-Ton/gamex-proctor-simulator", sourceBranch: "codex/realistic",
     deploymentRepository: "LeP-Ton/gamex-proctor-realistic", url: "https://lep-ton.github.io/gamex-proctor-realistic/",
     provenanceUrl: "https://lep-ton.github.io/gamex-proctor-realistic/deployment.json", storageKey: "gamex-proctor-v1",
   },
@@ -53,7 +58,7 @@ location.replace(target.href);
 </script></head><body><main><header class="page-heading"><h1>${target.name}已独立部署</h1><p>正在前往独立试玩站点。</p></header><a class="play" href="${target.url}">继续访问${target.name}</a></main></body></html>\n`;
 }
 
-/** main 只生成选择页与旧地址跳转，不检出、测试或打包两个游戏。 */
+/** main 只生成选择页与旧地址跳转，不检出、测试或打包三个游戏。 */
 export async function buildPages(options) {
   const output = path.resolve(options.output);
   const siteDir = path.resolve(options.siteDir ?? path.join(root, "sites"));
@@ -69,7 +74,7 @@ export async function buildPages(options) {
   validateResources(html.toString("utf8"));
   const manifest = {
     schemaVersion: 2, mode: "independent-sites", portalUrl: "https://lep-ton.github.io/gamex-proctor-simulator/", versions,
-    legacyPaths: { "illustrated/": versions.illustrated.url, "realistic/": versions.realistic.url },
+    legacyPaths: { "illustrated/": versions.illustrated.url, "photo/": versions.photo.url, "realistic/": versions.realistic.url },
   };
   const parent = path.dirname(output);
   await mkdir(parent, { recursive: true });
