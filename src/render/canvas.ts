@@ -1,15 +1,20 @@
 import { fitWorld, sceneGeometry, WORLD_H, WORLD_W } from "./geometry.js";
-import type { DrawOp } from "./geometry.js";
+import type { DrawOp, ImageShape } from "./geometry.js";
 import type { Game } from "../engine/game.js";
 import { VISUAL_VERSION } from "../engine/config.js";
 import { PHOTO_ASSETS, photoFrame } from "./photo-assets.js";
 import type { PhotoAssetId } from "./photo-assets.js";
+import { prepareMeshFrames } from "./mesh-renderer.js";
+import type { MeshFrame } from "./mesh-renderer.js";
+import { meshBounds } from "./photo-mesh.js";
 
 const photoImages = new Map<PhotoAssetId, HTMLImageElement>();
 const photoLoads = new Map<PhotoAssetId, Promise<void>>();
 let loadingPhotos: Promise<void> | undefined;
-export const photoAssetsReady = () =>
-  photoImages.size === Object.keys(PHOTO_ASSETS).length;
+export const photoAssetsReady = (version = VISUAL_VERSION) =>
+  (Object.keys(PHOTO_ASSETS) as PhotoAssetId[])
+    .filter((id) => version !== "photo-3" || id !== "peopleC")
+    .every((id) => photoImages.has(id));
 export function loadPhotoAssets(): Promise<void> {
   if (photoAssetsReady()) return Promise.resolve();
   if (loadingPhotos) return loadingPhotos;
@@ -76,7 +81,11 @@ function sensorFinish(ctx: CanvasRenderingContext2D, photographic = false) {
   ctx.restore();
 }
 
-export function drawOps(ctx: CanvasRenderingContext2D, ops: readonly DrawOp[]) {
+export function drawOps(
+  ctx: CanvasRenderingContext2D,
+  ops: readonly DrawOp[],
+  meshes?: ReadonlyMap<ImageShape, MeshFrame>,
+) {
   for (const op of ops) {
     const s = op.shape;
     ctx.globalAlpha = op.alpha ?? 1;
@@ -86,6 +95,24 @@ export function drawOps(ctx: CanvasRenderingContext2D, ops: readonly DrawOp[]) {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     if (s.kind === "image") {
+      if (s.mesh) {
+        const frame = meshes?.get(s);
+        if (frame) {
+          const box = meshBounds(s.mesh);
+          ctx.drawImage(
+            frame.image,
+            frame.sx,
+            frame.sy,
+            frame.sw,
+            frame.sh,
+            box.x,
+            box.y,
+            box.w,
+            box.h,
+          );
+        }
+        continue;
+      }
       const image = photoImages.get(s.asset);
       if (!image) continue;
       const frame = photoFrame(s);
@@ -188,13 +215,22 @@ export function renderCamera(
     fit.offsetY * pixelY,
   );
   ctx.clearRect(0, 0, WORLD_W, WORLD_H);
-  if (game.plan.config.visualVersion === VISUAL_VERSION && !photoAssetsReady())
+  if (
+    (game.plan.config.visualVersion === VISUAL_VERSION ||
+      game.plan.config.visualVersion === "photo-3") &&
+    !photoAssetsReady(game.plan.config.visualVersion)
+  )
     return [];
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, WORLD_W, WORLD_H);
+  ctx.clip();
   const { ops, actors, backgroundCount } = sceneGeometry(
     game.plan,
     game.tick,
     scene,
     game.caught,
+    game.records,
   );
   const frameKey = `${scene}:${game.plan.config.visualVersion ?? "classic"}`;
   let room = roomFrames.get(canvas);
@@ -209,8 +245,17 @@ export function renderCamera(
     roomFrames.set(canvas, room);
   }
   ctx.drawImage(room.image, 0, 0, WORLD_W, WORLD_H);
-  drawOps(ctx, ops.slice(backgroundCount));
-  if (game.plan.config.visualVersion === VISUAL_VERSION)
+  const images = ops.flatMap((op) =>
+    op.shape.kind === "image" && op.shape.mesh ? [op.shape] : [],
+  );
+  const meshes = images.length
+    ? prepareMeshFrames(images, photoImages, fit.scale * dpr)
+    : undefined;
+  drawOps(ctx, ops.slice(backgroundCount), meshes);
+  if (
+    game.plan.config.visualVersion === VISUAL_VERSION ||
+    game.plan.config.visualVersion === "photo-3"
+  )
     sensorFinish(ctx, true);
   else if (game.plan.config.visualVersion === "cctv-2") sensorFinish(ctx);
   const highlight = reviewId ?? hoverId;
@@ -252,5 +297,6 @@ export function renderCamera(
       19,
     );
   }
+  ctx.restore();
   return ops;
 }

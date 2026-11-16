@@ -15,3 +15,4 @@
 - `.npmrc` 和锁文件使用公开 npm 源，避免把本机内网镜像写入外部构建所需的下载地址。
 - 当前画面为本地照片质感素材与 Canvas 动作组合；素材位于 `public/assets/photo-3/`，来源及提示词同目录保存。运行时不调用 AI；图片解码完成后才允许开局，拾取共用实际透明轮廓与分层遮挡。
 - 视觉条件由 `visualVersion` 隔离成绩，不纳入计分事件随机流；经典版及 V2 记录分别使用冻结的 `legacy-geometry.ts`、`monitor-geometry.ts` 复盘。素材裁剪与掩码由可选离线脚本生成，不应手改生成数据。
+- 连贯动作由 `candidate-motion.ts` 按种子、tick 和只读举报记录重建；`photo-mesh.ts` 共用正反映射，`mesh-renderer.ts` 批量生成 GPU 图集并提供 Canvas 降级。V3 使用 `photo-geometry.ts` 冻结复盘；不要为新画面修改旧版共享的正常行为和迁移。

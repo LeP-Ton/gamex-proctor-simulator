@@ -25,6 +25,7 @@ import {
 } from "../src/render/geometry.js";
 import type { DrawOp } from "../src/render/geometry.js";
 import { sceneGeometry as monitorGeometry } from "../src/render/monitor-geometry.js";
+import { sceneGeometry as photoGeometry } from "../src/render/photo-geometry.js";
 import { containsPhoto, photoHead } from "../src/render/photo-assets.js";
 import { LocalStore, conditionKey } from "../src/storage.js";
 import type { Plan, RunRecord } from "../src/engine/types.js";
@@ -292,10 +293,12 @@ test("五类事件两个变体都有区别于正常与准备的物品或组合�
         p.events.some((e) => e.kind === kind && e.variant === variant),
       )!;
       const e = p.events.find((e) => e.kind === kind && e.variant === variant)!;
-      const active = sceneGeometry(p, e.start + 1, e.scene).ops.filter(
+      const activeTick = kind === "peeking" ? e.start + seconds(0.2) : e.start + 1;
+      const neutralTick = kind === "peeking" ? Math.max(0, e.prepare - 1) : e.start - 1;
+      const active = sceneGeometry(p, activeTick, e.scene).ops.filter(
         (o) => o.actorId === e.actors[0],
       );
-      const prepare = sceneGeometry(p, e.start - 1, e.scene).ops.filter(
+      const prepare = sceneGeometry(p, neutralTick, e.scene).ops.filter(
         (o) => o.actorId === e.actors[0],
       );
       if (kind === "peeking") {
@@ -486,17 +489,18 @@ test("本地记录最近十局，最佳按种子、难度、时长、版本、�
 test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子事件安排", () => {
   const config = makeConfig("visual-version-regression", "standard");
   assert.equal(config.visualVersion, VISUAL_VERSION);
-  assert.equal(VISUAL_VERSION, "photo-3");
+  assert.equal(VISUAL_VERSION, "motion-4");
   const legacyConfig = { ...config };
   delete legacyConfig.visualVersion;
   const legacyPlan = buildPlan(legacyConfig);
   const currentPlan = buildPlan(config);
   const monitorPlan = buildPlan({ ...config, visualVersion: "cctv-2" });
+  const photoPlan = buildPlan({ ...config, visualVersion: "photo-3" });
   const alternatePlan = buildPlan({
     ...config,
     visualVersion: "other-visual-version",
   });
-  for (const candidate of [currentPlan, monitorPlan, alternatePlan]) {
+  for (const candidate of [currentPlan, monitorPlan, photoPlan, alternatePlan]) {
     assert.deepEqual(candidate.events, legacyPlan.events);
     assert.deepEqual(candidate.visits, legacyPlan.visits);
     assert.deepEqual(candidate.people, legacyPlan.people);
@@ -514,12 +518,13 @@ test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子�
   };
   const legacyKey = `${config.seed}|standard|${config.duration}|${config.ruleVersion}|desktop|normal|exam`;
   const monitorKey = `${legacyKey}|visual:cctv-2`;
+  const photoKey = `${legacyKey}|visual:photo-3`;
   assert.equal(conditionKey(legacyRun), legacyKey);
   const saved = new Map<string, string>([
     [
       "gamex-proctor-v1",
       JSON.stringify({
-        best: { [legacyKey]: 900, [monitorKey]: 800 },
+        best: { [legacyKey]: 900, [monitorKey]: 800, [photoKey]: 700 },
         recent: [],
       }),
     ],
@@ -544,14 +549,27 @@ test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子�
   assert.equal(local.saveRun(currentRun), true);
   assert.equal(local.data.best[legacyKey], 900);
   assert.equal(local.data.best[monitorKey], 800);
+  assert.equal(local.data.best[photoKey], 700);
   assert.equal(local.data.best[conditionKey(currentRun)], 100);
   assert.equal(local.saveRun(legacyRun), false);
   assert.equal(local.data.best[legacyKey], 900);
   assert.equal(local.data.best[monitorKey], 800);
+  assert.equal(local.data.best[photoKey], 700);
   assert.equal(legacyRun.config.visualVersion, undefined);
+  const photoRun: RunRecord = {
+    ...legacyRun,
+    id: "photo-visual",
+    config: photoPlan.config,
+    plan: photoPlan,
+    score: { ...legacyRun.score, total: 650 },
+  };
+  assert.equal(conditionKey(photoRun), photoKey);
+  assert.equal(local.saveRun(photoRun), false);
+  assert.equal(local.data.best[photoKey], 700);
+  assert.equal(local.data.best[conditionKey(currentRun)], 100);
 });
 
-test("第二版监控记录继续使用冻结几何，第三版不改写旧局与命中条件", () => {
+test("第二版监控记录继续使用冻结几何，后续版本不改写旧局与命中条件", () => {
   const oldPlan = buildPlan({
     ...makeConfig("monitor-compatibility"),
     visualVersion: "cctv-2",
@@ -571,6 +589,36 @@ test("第二版监控记录继续使用冻结几何，第三版不改写旧局�
     }
   replayAt(oldPlan, [], 1200);
   assert.equal(JSON.stringify(oldPlan), original);
+});
+
+test("第三版照片记录保留精确几何、原命中像素与只读复盘", () => {
+  const oldPlan = buildPlan({
+    ...makeConfig("photo-compatibility"),
+    visualVersion: "photo-3",
+  });
+  const game = new Game(oldPlan);
+  const first = oldPlan.events[0];
+  game.advanceTo(first.start + 1);
+  game.report(first.scene, first.actors[0]);
+  const inputs = game.inputs.map((input) => ({ ...input }));
+  const original = JSON.stringify({ plan: oldPlan, inputs });
+  for (const tick of [0, first.start + 1, 1800, 7199]) {
+    const replay = replayAt(oldPlan, inputs, tick);
+    for (let scene = 0; scene < 6; scene++) {
+      const visible = sceneGeometry(oldPlan, tick, scene, replay.caught);
+      assert.ok(
+        isDeepStrictEqual(visible, photoGeometry(oldPlan, tick, scene, replay.caught)),
+        `第三版画面必须与冻结版本完全一致：tick ${tick} / scene ${scene}`,
+      );
+      for (const actor of visible.actors) {
+        assert.ok(
+          pointFor(visible.ops, actor.person.id),
+          `第三版可见人物 ${actor.person.id} 必须仍可点击`,
+        );
+      }
+    }
+  }
+  assert.equal(JSON.stringify({ plan: oldPlan, inputs }), original);
 });
 
 test("渐进教学使用两路、四路、六路真实事件并有并发演示和正常来访", () => {
