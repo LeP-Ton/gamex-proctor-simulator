@@ -11,8 +11,8 @@
 - 复盘必须从实际种子和输入日志重建，禁止修改原局；正式界面不泄露目标或倒计时。
 - 参数与规则版本集中在 `src/engine/config.ts`。规则变更须更新版本，避免混排成绩。
 - 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
-- GitHub Pages 由 `.github/workflows/pages.yml` 对 main 的运行相关变更自动测试、构建和部署；GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容仓库子路径。
+- GitHub 远程名为 `github`，与 Sites 源仓库分开管理。两个版本分别镜像到 `LeP-Ton/gamex-proctor-illustrated` 与 `LeP-Ton/gamex-proctor-realistic`，各自测试、构建和部署 Pages；main 只维护选择入口。Vite 使用相对资源路径兼容各仓库路径。
 - `.npmrc` 和锁文件使用公开 npm 源，避免把本机内网镜像写入外部构建所需的下载地址。
 
-- 本分支为 `codex/illustrated` 插画可玩首版；仅维护此版本。`main` 编排双版本 Pages 发布，`codex/realistic` 维护写实版。
-- 插画版存档键为 `gamex-proctor-illustrated-v1`，不得改回写实版沿用的 `gamex-proctor-v1`。版本分支工作流只请求 main 联合发布，避免互相覆盖站点。
+- 本分支为 `codex/illustrated` 插画可玩首版；仅维护此版本，`codex/realistic` 维护写实版。本分支工作流在源码仓库只测试构建，仅在对应插画部署仓库发布，不请求 main 联合部署。
+- 插画版存档键为 `gamex-proctor-illustrated-v1`，不得改回写实版沿用的 `gamex-proctor-v1`；两个仓库路径仍同源，不能依赖 URL 路径隔离存档。

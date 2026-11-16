@@ -1,6 +1,6 @@
 # GameX · 监考模拟器 · 插画首版
 
-当前版本分支：`codex/illustrated`。代码基线为首版交付 `be6f57f`，沿用外部 Pages 适配后的 `6e3af47`；游戏引擎、界面、插画和操作保留首版，只隔离同域名下的存档键并接入联合发布。
+当前版本分支：`codex/illustrated`。代码基线为首版交付 `be6f57f`，沿用外部 Pages 适配后的 `6e3af47`；游戏引擎、界面、插画和操作保留首版，隔离同域名下的存档键并独立发布。
 
 [选择其他版本](https://lep-ton.github.io/gamex-proctor-simulator/) · [双版本发布权威记录](https://github.com/LeP-Ton/gamex-proctor-simulator/blob/main/.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
 
@@ -8,11 +8,11 @@
 
 ## GitHub Pages 发布
 
-在线试玩：**[打开监考模拟器](https://lep-ton.github.io/gamex-proctor-simulator/illustrated/)**。
+在线试玩：**[打开插画版独立站点](https://lep-ton.github.io/gamex-proctor-illustrated/)**。
 
 源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；首次 Pages 发布已完成。
 
-本分支的 `.github/workflows/pages.yml` 在游戏代码更新时请求 main 的中央工作流，中央工作流固定两个版本提交、分别测试构建后一次发布两个目录；不要独立部署本分支 dist 覆盖整站。
+本分支的 `.github/workflows/pages.yml` 在源码仓库测试构建，固定提交镜像到 [独立部署仓库](https://github.com/LeP-Ton/gamex-proctor-illustrated) 后单独测试、构建和发布自己的 Pages。写实站点不参与该发布；main 仅作为版本选择入口。
 
 `vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
 

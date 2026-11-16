@@ -1,30 +1,62 @@
-name: 请求双版本 Pages 发布
+name: 独立发布插画首版到 Pages
 
 on:
   push:
-    branches: [codex/illustrated, codex/realistic]
-    paths:
-      - "src/**"
-      - "public/**"
-      - "tests/**"
-      - "index.html"
-      - "vite.config.ts"
-      - "package.json"
-      - "package-lock.json"
-      - ".npmrc"
-      - "tsconfig*.json"
-      - ".github/workflows/**"
+    branches: [codex/illustrated]
   workflow_dispatch:
 
 permissions:
-  actions: write
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
-  request:
-    name: 请求 main 联合发布两个版本
+  build:
+    if: github.ref == 'refs/heads/codex/illustrated'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
-      - name: 触发中央 Pages 工作流
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: 安装锁定依赖
+        run: npm ci
+      - name: 运行本版本核心测试
+        run: npm test
+      - name: 构建本版本
+        run: npm run build
+      - name: 记录源分支与固定提交
+        run: |
+          if [ -f public/deployment.json ]; then
+            cat public/deployment.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '源码分支提交：%s\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/configure-pages@v6
+        if: github.repository == 'LeP-Ton/gamex-proctor-illustrated'
+      - uses: actions/upload-pages-artifact@v5
+        if: github.repository == 'LeP-Ton/gamex-proctor-illustrated'
+        with:
+          path: dist
+  deploy:
+    if: github.repository == 'LeP-Ton/gamex-proctor-illustrated' && github.ref == 'refs/heads/codex/illustrated'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署本版本独立站点
+        id: deployment
+        uses: actions/deploy-pages@v5
