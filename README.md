@@ -2,7 +2,7 @@
 
 在六路考场画面中观察人物和物品，发现明确违规后直接点击举报。支持教学、固定六分钟考试、三档难度、种子重赛、本地记录与真实事件复盘。
 
-插画首版、会话54照片版和会话88的3D版分别维护、分别部署。原插画与3D站点已完成云端和线上验收；照片版恢复与第三入口本次正在发布，实际结果以[当前阶段记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/20261116161718-照片版独立发布.md)为准。main 仅维护选择页和旧书签兼容跳转。
+插画首版、会话54照片版和会话88的3D版分别维护、分别部署。三个站点及选择页均已完成云端发布与正式浏览器验收，实际结果以[当前阶段记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/20261116161718-照片版独立发布.md)为准。main 仅维护选择页和旧书签兼容跳转。
 
 | 版本 | 独立试玩 | 权威源码 | 独立部署仓库 |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@
 
 [版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)保持原地址。旧根 `?v=motion-4` 恢复指向照片站；其余 `?v=...` / `?debug=...`（包括 `photo-3`、`cctv-2`、`rig-5`）继续指向3D站。`/illustrated/`、`/photo/`、`/realistic/` 分别转对应独立站，完整保留查询和片段。照片版入口发布进展见[需求记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
 
-三游戏站分别构建自己的产物，更新一版不触发其他版本。三站仍同属 `lep-ton.github.io`，因此显式隔离保存键：插画版 `gamex-proctor-illustrated-v1`，照片版 `gamex-proctor-photo-v1`，3D版保留 `gamex-proctor-v1`；原3D记录保留。
+三游戏站分别构建自己的产物，更新一版不触发其他版本。三站仍同属 `lep-ton.github.io`，因此显式隔离保存键：插画版 `gamex-proctor-illustrated-v1`，照片版 `gamex-proctor-photo-v1`，3D版保留 `gamex-proctor-v1`；原插画和3D记录保留；原照片历史仍留在3D站兼容存档中，照片独立站从自己的记录开始。
 
 每站 `deployment.json` 标明完整权威源 SHA、源 tree 和部署仓库。查看[插画来源](https://lep-ton.github.io/gamex-proctor-illustrated/deployment.json)、[照片来源](https://lep-ton.github.io/gamex-proctor-photo/deployment.json)、[3D来源](https://lep-ton.github.io/gamex-proctor-realistic/deployment.json)；选择页不固化各站当前提交。
 
@@ -64,6 +64,8 @@ node scripts/sync-independent-pages.mjs realistic <完整源码SHA>
 
 - 首次独立发布：[插画任务 43811806502](https://github.com/LeP-Ton/gamex-proctor-illustrated/actions/runs/43811806502)、[写实任务 43812180658](https://github.com/LeP-Ton/gamex-proctor-realistic/actions/runs/43812180658)，分别 16/36 项核心测试、构建部署通过。
 - 两站 Chrome 验收通过：两种桌面尺寸、20 次真实举报、模拟整局结算、独立保存、来源清单；14 个响应正文与已验收本地包逐字节一致，无控制台或资源错误。
+- 本次照片版 37 项核心、本地 14 组原版浏览器流程通过；照片云端[任务 43830718492](https://github.com/LeP-Ton/gamex-proctor-photo/actions/runs/43830718492)成功，三卡入口[任务 43830888414](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43830888414)的5项测试、构建部署成功。
+- 三版正式线上来源/源tree、26个运行资源正文、两种桌面视口、照片20组真实举报与完整模拟局/只读复盘、同源三键隔离均通过；入口7个公开文件、3种视口、9条旧书签完整跳转通过。证据和限制见本次阶段记录，用户人工体验待反馈。
 - 原双入口 main 的4项测试、云端及线上结果见[独立部署返修](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/20261116134658-独立部署返修.md)。新增照片版与三入口本次验证单独记录，不能沿用原双版本验收结论。自动化检查不等于用户体验验收。
 
 需求入口：[游戏实现 REQ-20261113124409](.agentdocs/workflow/REQ-20261113124409-监考模拟器/README.md)；[独立分支发布 REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。原[组合发布记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/20261116130906-双版本发布.md)保留历史证据，当前方案已被独立部署替代。
