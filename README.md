@@ -10,7 +10,7 @@
 
 ## GitHub Pages 双版本发布
 
-本次双版本分支和本地检查已完成，主发布编排尚未提交，最终云端部署与线上访问待验证。以下为固定发布入口：
+两个版本已同时上线。云端测试、构建和[联合部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43810840015)通过，线上双入口、交互、存档隔离与资源核验通过。
 
 | 版本 | Pages 入口 | 独立源码分支 |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Pages 由 main 的 `.github/workflows/pages.yml` 统一发布：先把两个分�
 
 两个地址同源，但存档键不同：插画版为 `gamex-proctor-illustrated-v1`，写实版继续使用 `gamex-proctor-v1`，保留当前已有记录。两个版本的设置和成绩不混写。
 
-双版本方案、基线与验收见 [REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。此前单写实版的发布记录仍保留在[连贯动作阶段](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)，不能把此前部署结果当作本次双版本已上线。
+双版本方案、基线与验收见 [REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。此前单写实版的发布记录保留在[连贯动作阶段](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)。
 
 ## 本地启动与分支
 
@@ -63,6 +63,7 @@ npm run test:realtime  # 不快进的真实六分钟正式考试
 ```sh
 git switch main
 npm run test:pages          # 只需 Node，验证组合产物与兼容入口
+npm ci                     # 浏览器检查需要 main 的开发依赖
 npm run test:pages-browser  # 需先组装 dist/，检查双版交互与同源存档隔离
 ```
 
