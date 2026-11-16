@@ -1,4 +1,4 @@
-# GameX · 监考模拟器
+# GameX · 监考模拟器 · 照片版（会话-54）
 
 在「考场视频巡查系统」中同时观察六路画面，发现明确违规后直接点击人物或物品。单局固定六分钟，挑战同种子下的最高成绩。
 
@@ -6,17 +6,21 @@
 
 图片均为 AI 生成原创素材，运行时不调用 AI 或远程素材服务。首次进入会等待约 4.5MB 本地素材解码，失败可重试。新开局使用 `motion-4`；三代旧记录继续按原画面复盘，四种视觉条件的最佳成绩分别保存，计分机会保持不变。
 
-## GitHub Pages 发布
+## 三个独立版本与 Pages
 
-在线试玩：**[打开监考模拟器最新版](https://lep-ton.github.io/gamex-proctor-simulator/?v=motion-4)**。
+| 版本 | 源码分支 | 独立试玩 |
+| --- | --- | --- |
+| 插画首版 | `codex/illustrated` | [插画版](https://lep-ton.github.io/gamex-proctor-illustrated/) |
+| 照片版（会话-54，`motion-4`） | `codex/photo` | [照片版](https://lep-ton.github.io/gamex-proctor-photo/) |
+| 3D 版（会话-88，`rig-5`） | `codex/realistic` | [3D 版](https://lep-ton.github.io/gamex-proctor-realistic/) |
 
-源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；2026-11-16 已更新 `motion-4` 连贯动作画面。
+[统一版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)。三个源码分支均保留在公开的 [gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)；每个游戏使用自己的公开部署仓库，分别发布 Pages。
 
-发布配置位于 `.github/workflows/pages.yml`：main 的代码、资源、测试或构建配置更新会先运行核心测试，再构建 `dist/` 并部署；也可手动运行工作流。纯文档更新不重复部署。
+本分支从会话-54 对应归档 `f258a19fba00ecc4dc62f39664a559698d20580b` 恢复，保留照片网格动作、素材与 rule `1.0.0`。不是 Three.js 全场景建模版本。运行画面和规则不改；存档键改为 `gamex-proctor-photo-v1`，与插画、3D 版隔离。原域名旧照片记录留在 3D 站原存档中，照片独立站从自己的记录开始。
 
-`vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
+`.github/workflows/pages.yml` 对 `codex/photo` 的运行相关变更测试、构建；只有 `LeP-Ton/gamex-proctor-photo` 仓库的同名分支可部署。源仓库不会从照片分支覆盖统一选择页。纯文档更新不重复部署。
 
-首次发布见[发布记录](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261113151338-GitHubPages发布.md)；当前版本见[连贯动作返修与线上验证](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)和[成功的部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43796800742)。素材与原始生成提示词见[原素材说明](public/assets/photo-3/README.md)及[新增人物说明](public/assets/motion-4/README.md)。
+发布进展和验收见[三版本独立发布记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。素材与原始提示词见[照片素材说明](public/assets/photo-3/README.md)和[新增人物说明](public/assets/motion-4/README.md)。
 
 ## 本地启动
 

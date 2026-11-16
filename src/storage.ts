@@ -11,7 +11,8 @@ export interface SavedData {
   recent: RunRecord[];
   best: Record<string, number>;
 }
-export const SAVE_KEY = "gamex-proctor-v1";
+// 三个 Pages 仍同源；照片版独立保存，不能让旧播放器读取或改写 3D 版记录。
+export const SAVE_KEY = "gamex-proctor-photo-v1";
 const defaults = (): SavedData => ({
   settings: {
     difficulty: "standard",

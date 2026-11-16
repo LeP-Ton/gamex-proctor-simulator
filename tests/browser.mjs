@@ -369,7 +369,7 @@ try {
       `真实时长异常：${elapsedMs}`,
     );
     const run = await page.evaluate(
-      () => JSON.parse(localStorage.getItem("gamex-proctor-v1")).recent[0],
+      () => JSON.parse(localStorage.getItem("gamex-proctor-photo-v1")).recent[0],
     );
     assert.equal(run.config.debug, false);
     assert.equal(run.config.duration, 7200);

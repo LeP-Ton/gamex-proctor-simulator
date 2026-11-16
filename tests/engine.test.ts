@@ -27,7 +27,7 @@ import type { DrawOp } from "../src/render/geometry.js";
 import { sceneGeometry as monitorGeometry } from "../src/render/monitor-geometry.js";
 import { sceneGeometry as photoGeometry } from "../src/render/photo-geometry.js";
 import { containsPhoto, photoHead } from "../src/render/photo-assets.js";
-import { LocalStore, conditionKey } from "../src/storage.js";
+import { LocalStore, SAVE_KEY, conditionKey } from "../src/storage.js";
 import type { Plan, RunRecord } from "../src/engine/types.js";
 
 const plan = buildPlan(makeConfig());
@@ -522,7 +522,7 @@ test("视觉版本隔离新旧成绩，兼容旧最佳键且不改变同种子�
   assert.equal(conditionKey(legacyRun), legacyKey);
   const saved = new Map<string, string>([
     [
-      "gamex-proctor-v1",
+      SAVE_KEY,
       JSON.stringify({
         best: { [legacyKey]: 900, [monitorKey]: 800, [photoKey]: 700 },
         recent: [],

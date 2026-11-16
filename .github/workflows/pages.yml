@@ -1,19 +1,19 @@
-name: 发布监考模拟器到 GitHub Pages
+name: 独立发布照片版到 Pages
 
 on:
   push:
-    branches: [main]
+    branches: [codex/photo]
     paths:
-      - "src/**"
-      - "public/**"
-      - "tests/**"
-      - "index.html"
-      - "vite.config.ts"
-      - "package.json"
-      - "package-lock.json"
-      - ".npmrc"
-      - "tsconfig*.json"
-      - ".github/workflows/pages.yml"
+      - 'src/**'
+      - 'public/**'
+      - 'tests/**'
+      - 'index.html'
+      - 'vite.config.*'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
+      - 'tsconfig*.json'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,44 +25,49 @@ concurrency:
 
 jobs:
   build:
-    name: 测试与构建
+    if: github.ref == 'refs/heads/codex/photo'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: read
     steps:
-      - name: 检出源码
-        uses: actions/checkout@v7
-      - name: 配置 Node.js
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
-      - name: 安装依赖
+      - name: 安装锁定依赖
         run: npm ci
-      - name: 运行核心测试
+      - name: 运行照片版核心测试
         run: npm test
-      - name: 构建静态游戏
+      - name: 构建照片版
         run: npm run build
-      - name: 配置 Pages
-        uses: actions/configure-pages@v6
-      - name: 上传构建产物
-        uses: actions/upload-pages-artifact@v5
+      - name: 记录源分支与固定提交
+        run: |
+          if [ -f public/deployment.json ]; then
+            cat public/deployment.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '照片版源码提交：`%s`\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/configure-pages@v6
+        if: github.repository == 'LeP-Ton/gamex-proctor-photo'
+      - uses: actions/upload-pages-artifact@v5
+        if: github.repository == 'LeP-Ton/gamex-proctor-photo'
         with:
           path: dist
-
   deploy:
-    name: 部署公开试玩
+    if: github.repository == 'LeP-Ton/gamex-proctor-photo' && github.ref == 'refs/heads/codex/photo'
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: 部署到 GitHub Pages
+      - name: 部署照片版独立站点
         id: deployment
         uses: actions/deploy-pages@v5
