@@ -4,11 +4,10 @@ import { isDeepStrictEqual } from "node:util";
 import {
   BALANCE,
   DIFFICULTIES,
-  makeConfig,
   PRESET_SEEDS,
   seconds,
-  VISUAL_VERSION,
 } from "../src/engine/config.js";
+import { makeConfig, VISUAL_VERSION } from "./legacy-config.js";
 import type { Difficulty } from "../src/engine/config.js";
 import { buildPlan, validatePlan } from "../src/engine/schedule.js";
 import { Game, accuracy, detectionRate, replayAt } from "../src/engine/game.js";
@@ -39,7 +38,9 @@ function pointFor(
   for (const op of ops.filter((o) => o.actorId === actorId)) {
     const s = op.shape;
     const p =
-      s.kind === "image"
+      s.kind === "rig-person"
+        ? s.head
+        : s.kind === "image"
         ? (s.head ?? photoHead(s))
         : s.kind === "rect"
           ? { x: s.x + s.w / 2, y: s.y + s.h / 2 }

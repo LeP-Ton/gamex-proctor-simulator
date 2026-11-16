@@ -1,26 +1,28 @@
 # GameX · 监考模拟器 · 写实版
 
-当前版本分支：`codex/realistic`，延续连贯动作版。游戏源码在此分支维护，`main` 负责同时发布两个版本。
+当前源码分支为 `codex/realistic`；游戏单独部署到 [写实版 Pages](https://lep-ton.github.io/gamex-proctor-realistic/)，插画版有自己的 [Pages 站点](https://lep-ton.github.io/gamex-proctor-illustrated/)。两个站点各自测试、构建和发布。
 
 [选择其他版本](https://lep-ton.github.io/gamex-proctor-simulator/) · [双版本发布权威记录](https://github.com/LeP-Ton/gamex-proctor-simulator/blob/main/.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
 
 在「考场视频巡查系统」中同时观察六路画面，发现明确违规后直接点击人物或物品。单局固定六分钟，挑战同种子下的最高成绩。
 
-当前使用连贯动作监控画面：20 种本地照片底片，加上每位考生固定的体态、衣色和动作节奏差异。人物以同一张底片连续变形，连接头肩、肘腕、书写、肩背舒展与步态，避免直接切换姿势照片和几何长臂。桌前层与实际拾取共用同一网格和透明轮廓。
+新版 `rig-5` 使用室内固定监控机位、完整三维骨骼人物和实体桌椅。人物按走过的米数取样步行动画，转向与路线一致；离座包含起立、绕过桌椅、走门、开门、门后离场及返回坐下。头肩、身体和肢体使用同一连续蒙皮，不再用正面照片拉伸成走路。
 
-图片均为 AI 生成原创素材，运行时不调用 AI 或远程素材服务。首次进入会等待约 4.5MB 本地素材解码，失败可重试。新开局使用 `motion-4`；三代旧记录继续按原画面复盘，四种视觉条件的最佳成绩分别保存，计分机会保持不变。
+桌面、金属腿架、座椅、门、地板和人物共用三维相机、深度和光照，窗侧投影与接触阴影落在实际地面。点击以可见人物的实际蒙皮三角及家具遮挡判断。两款 CC0 普通人物模型约 3.9MB，按种子固定八种衣色、体态、身高和动作节奏；不是 48 张不同真人面孔。来源、许可和处理数据见 [人物素材说明](public/assets/rig-5/README.md)。
+
+新规则 `1.1.0` 为完整离场路线预留 14 秒迁移；仍有固定事件数与完整观察窗口。新旧规则成绩隔离，四代旧画面使用冻结实现只读复盘，旧局重赛使用当前画面和规则。图片和模型随站点打包，运行时不调用 AI 或模型服务；素材与图形上下文完成准备后才允许开局。
 
 ## GitHub Pages 发布
 
-在线试玩：**[打开监考模拟器最新版](https://lep-ton.github.io/gamex-proctor-simulator/realistic/?v=motion-4)**。
+在线试玩：**[打开独立写实版](https://lep-ton.github.io/gamex-proctor-realistic/)**。
 
-源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；2026-11-16 已更新 `motion-4` 连贯动作画面。
+权威源码：[原仓库 codex/realistic](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/realistic)。发布镜像：[LeP-Ton/gamex-proctor-realistic](https://github.com/LeP-Ton/gamex-proctor-realistic)。插画版在另一个仓库发布，更新真实版不构建或覆盖插画站点。
 
-本分支的 `.github/workflows/pages.yml` 在游戏代码更新时请求 main 中央工作流。中央工作流固定插画与写实分支的提交，分别测试构建后一次发布两个子目录，任一版失败都保留上次整站。
+本分支 `.github/workflows/pages.yml` 先测试和构建；仅在写实部署仓库才上传和部署自己的 Pages。镜像的 `public/deployment.json` 记录权威源码分支、完整提交与目录树，可从线上核对实际来源；不再请求 main 联合部署。
 
 `vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
 
-首次发布见[发布记录](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261113151338-GitHubPages发布.md)；当前版本见[连贯动作返修与线上验证](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)和[成功的部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43796800742)。素材与原始生成提示词见[原素材说明](public/assets/photo-3/README.md)及[新增人物说明](public/assets/motion-4/README.md)。
+独立部署权威记录见[双版本发布需求](https://github.com/LeP-Ton/gamex-proctor-simulator/blob/main/.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。本次实现与动态验收见[三维人物与场景返修](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116134618-三维人物与场景返修.md)；早期照片及动作版本记录继续保留。
 
 ## 本地启动
 
@@ -42,6 +44,7 @@ npm run test:stress # 三档难度共 15,000 组种子压力检查
 npm run test:browser   # 生产构建 + 浏览器全流程及两种尺寸验收
 npm run test:realtime  # 不快进的真实六分钟正式考试
 npm run test:motion    # 实际 Canvas 动态录像、动作边界与帧间隔检查
+npm run test:rig       # 完整交互与三段实际动作录像
 ```
 
 浏览器测试优先使用本机 Google Chrome 的独立临时配置；没有安装 Chrome 时，先执行 `npx playwright install chromium`。也可以通过 `PROCTOR_BROWSER_PATH` 指定测试浏览器路径。测试会自行启动并关闭本地生产预览，截图和 JSON 报告写入 `artifacts/`。
@@ -91,9 +94,9 @@ public/assets/motion-4/ # 新人物素材、裁剪边界与原始生成提示词
 scripts/               # 可选离线素材准备工具；正常运行和构建无需 Python
 ```
 
-引擎使用整数 tick（每秒 20 次），渲染约 30fps，避免不同画面各自计时。所有计分事件在开局时生成，提前抓到不会增加后续事件。动作有效区间为 `[start, end)`。计分、正常行为及普通来访使用独立随机来源，观察、悬停、放大和重放不消耗计分随机数。
+引擎使用整数 tick（每秒 20 次），目标渲染约 30fps，避免不同画面各自计时。所有计分事件在开局时生成，提前抓到不会增加后续事件。动作有效区间为 `[start, end)`。计分、正常行为及普通来访使用独立随机来源；新规则仅在明确的预约冲突后进行有界确定性重排，观察、悬停、放大和重放不消耗计分随机数。
 
-绘制与拾取使用同一批几何和照片帧；连续动作从实际网格逆映射回源照片，按逆绘制顺序拾取；桌面、人物和前景可真实遮挡。照片使用实际 alpha 透明掩码，桌腿镂空和人物透明边缘不可命中。画面等比例缩放，输入使用同一变换，兼容设备像素比（DPR）。成功后旧物品轮廓只用于短暂忽略重复输入，不会成为新的得分目标。
+当前画面和拾取共用完整骨骼、实体桌椅与相机。浏览器用射线判断真实三角形和深度，桌腿之间的镂空不阻挡，家具也不会变成可举报人物。Node 测试使用纯投影描述检查引擎约束，真实浏览器检查另验实际网格点击。画面等比例缩放，输入使用同一变换，兼容设备像素比（DPR）；成功前的可见姿态快照仅用于短暂重复输入保护。旧照片复盘继续使用原透明掩码和网格。
 
 复盘从本局保存的事件计划和实际输入日志重建整个世界，而非播放通用示意动画。本地成绩按种子、难度、时长、规则版本、布局和辅助标记隔离。隐私模式或存储配额不可用时，游戏继续运行，记录退回内存保存。
 
@@ -103,6 +106,6 @@ scripts/               # 可选离线素材准备工具；正常运行和构建�
 
 ## 验证与边界
 
-实际结果见 [TESTING.md](TESTING.md)。已知边界：桌面单机、原创照片素材与程序动作合成、浏览器本地存储；人物仍为二维照片与网格合成，基础面孔数量有限，大角度动作和局部肢体可能保留合成痕迹。没有服务器排行榜、跨设备同步、视频导出或完整无视觉辅助操作。后续计划见 [TODO.md](TODO.md)。
+实际结果见 [TESTING.md](TESTING.md)。当前是三维仿真监控，基础人物模型数量有限；不将它声称为真人录像。运行需要支持 WebGL2 的桌面浏览器，成绩保存在本地，没有服务器排行榜、跨设备同步或用户视频导出。旧版的照片合成边界仅适用于旧局复盘。后续计划见 [TODO.md](TODO.md)。
 
 需求与实现记录入口：[REQ-20261113124409](.agentdocs/workflow/REQ-20261113124409-监考模拟器/README.md)。

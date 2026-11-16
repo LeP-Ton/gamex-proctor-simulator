@@ -7,6 +7,12 @@ import type { PhotoAssetId } from "./photo-assets.js";
 import { prepareMeshFrames } from "./mesh-renderer.js";
 import type { MeshFrame } from "./mesh-renderer.js";
 import { meshBounds } from "./photo-mesh.js";
+import { loadRigPeople, rigPeopleReady } from "./rig-people.js";
+import {
+  initializeRigRenderer,
+  rigRendererReady,
+  renderRigCamera,
+} from "./rig-renderer.js";
 
 const photoImages = new Map<PhotoAssetId, HTMLImageElement>();
 const photoLoads = new Map<PhotoAssetId, Promise<void>>();
@@ -14,12 +20,14 @@ let loadingPhotos: Promise<void> | undefined;
 export const photoAssetsReady = (version = VISUAL_VERSION) =>
   (Object.keys(PHOTO_ASSETS) as PhotoAssetId[])
     .filter((id) => version !== "photo-3" || id !== "peopleC")
-    .every((id) => photoImages.has(id));
+    .every((id) => photoImages.has(id)) &&
+  (version !== "rig-5" || (rigPeopleReady() && rigRendererReady()));
 export function loadPhotoAssets(): Promise<void> {
   if (photoAssetsReady()) return Promise.resolve();
   if (loadingPhotos) return loadingPhotos;
-  loadingPhotos = Promise.all(
-    (Object.keys(PHOTO_ASSETS) as PhotoAssetId[]).map(async (id) => {
+  loadingPhotos = Promise.all([
+    loadRigPeople().then(() => initializeRigRenderer()),
+    ...(Object.keys(PHOTO_ASSETS) as PhotoAssetId[]).map(async (id) => {
       if (photoImages.has(id)) return;
       const pending = photoLoads.get(id);
       if (pending) return pending;
@@ -36,7 +44,7 @@ export function loadPhotoAssets(): Promise<void> {
       photoLoads.set(id, decoding);
       return decoding;
     }),
-  )
+  ])
     .then(() => undefined)
     .catch((error: unknown) => {
       // 保留已解码图片，只重试失败项；考试在全部素材完成前保持未开始。
@@ -49,6 +57,20 @@ export function loadPhotoAssets(): Promise<void> {
 const roomFrames = new WeakMap<
   HTMLCanvasElement,
   { key: string; image: HTMLCanvasElement }
+>();
+const rigFrames = new WeakMap<
+  HTMLCanvasElement,
+  {
+    game: Game;
+    tick: number;
+    records: number;
+    caught: number;
+    width: number;
+    height: number;
+    hover: number | null;
+    review: number | null;
+    ops: DrawOp[];
+  }
 >();
 let sensorTexture: HTMLCanvasElement | undefined;
 
@@ -88,6 +110,7 @@ export function drawOps(
 ) {
   for (const op of ops) {
     const s = op.shape;
+    if (s.kind === "rig-person") continue;
     ctx.globalAlpha = op.alpha ?? 1;
     ctx.fillStyle = op.fill ?? "transparent";
     ctx.strokeStyle = op.stroke ?? "transparent";
@@ -195,6 +218,20 @@ export function renderCamera(
   const w = Math.round(rect.width * dpr);
   const h = Math.round(rect.height * dpr);
   if (w === 0 || h === 0) return [];
+  // 模拟只有新 tick 才改变姿态；同 tick 的 RAF、调试定位和冻结不重复跑六路 GPU。
+  const previousRig = rigFrames.get(canvas);
+  if (
+    game.plan.config.visualVersion === "rig-5" &&
+    previousRig?.game === game &&
+    previousRig.tick === game.tick &&
+    previousRig.records === game.records.length &&
+    previousRig.caught === game.caught.size &&
+    previousRig.width === w &&
+    previousRig.height === h &&
+    previousRig.hover === hoverId &&
+    previousRig.review === reviewId
+  )
+    return previousRig.ops;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -217,6 +254,7 @@ export function renderCamera(
   ctx.clearRect(0, 0, WORLD_W, WORLD_H);
   if (
     (game.plan.config.visualVersion === VISUAL_VERSION ||
+      game.plan.config.visualVersion === "motion-4" ||
       game.plan.config.visualVersion === "photo-3") &&
     !photoAssetsReady(game.plan.config.visualVersion)
   )
@@ -225,35 +263,43 @@ export function renderCamera(
   ctx.beginPath();
   ctx.rect(0, 0, WORLD_W, WORLD_H);
   ctx.clip();
-  const { ops, actors, backgroundCount } = sceneGeometry(
-    game.plan,
-    game.tick,
-    scene,
-    game.caught,
-    game.records,
-  );
-  const frameKey = `${scene}:${game.plan.config.visualVersion ?? "classic"}`;
-  let room = roomFrames.get(canvas);
-  if (!room || room.key !== frameKey) {
-    const image = document.createElement("canvas");
-    image.width = 1200;
-    image.height = 700;
-    const surface = image.getContext("2d")!;
-    surface.scale(2, 2);
-    drawOps(surface, ops.slice(0, backgroundCount));
-    room = { key: frameKey, image };
-    roomFrames.set(canvas, room);
+  const { ops, actors, backgroundCount } =
+    game.plan.config.visualVersion === "rig-5"
+      ? renderRigCamera(
+          ctx,
+          game.plan,
+          game.tick,
+          scene,
+          game.caught,
+          game.records,
+          fit.scale * dpr,
+        )
+      : sceneGeometry(game.plan, game.tick, scene, game.caught, game.records);
+  if (game.plan.config.visualVersion !== "rig-5") {
+    const frameKey = `${scene}:${game.plan.config.visualVersion ?? "classic"}`;
+    let room = roomFrames.get(canvas);
+    if (!room || room.key !== frameKey) {
+      const image = document.createElement("canvas");
+      image.width = 1200;
+      image.height = 700;
+      const surface = image.getContext("2d")!;
+      surface.scale(2, 2);
+      drawOps(surface, ops.slice(0, backgroundCount));
+      room = { key: frameKey, image };
+      roomFrames.set(canvas, room);
+    }
+    ctx.drawImage(room.image, 0, 0, WORLD_W, WORLD_H);
+    const images = ops.flatMap((op) =>
+      op.shape.kind === "image" && op.shape.mesh ? [op.shape] : [],
+    );
+    const meshes = images.length
+      ? prepareMeshFrames(images, photoImages, fit.scale * dpr)
+      : undefined;
+    drawOps(ctx, ops.slice(backgroundCount), meshes);
   }
-  ctx.drawImage(room.image, 0, 0, WORLD_W, WORLD_H);
-  const images = ops.flatMap((op) =>
-    op.shape.kind === "image" && op.shape.mesh ? [op.shape] : [],
-  );
-  const meshes = images.length
-    ? prepareMeshFrames(images, photoImages, fit.scale * dpr)
-    : undefined;
-  drawOps(ctx, ops.slice(backgroundCount), meshes);
   if (
     game.plan.config.visualVersion === VISUAL_VERSION ||
+    game.plan.config.visualVersion === "motion-4" ||
     game.plan.config.visualVersion === "photo-3"
   )
     sensorFinish(ctx, true);
@@ -298,5 +344,17 @@ export function renderCamera(
     );
   }
   ctx.restore();
+  if (game.plan.config.visualVersion === "rig-5")
+    rigFrames.set(canvas, {
+      game,
+      tick: game.tick,
+      records: game.records.length,
+      caught: game.caught.size,
+      width: w,
+      height: h,
+      hover: hoverId,
+      review: reviewId,
+      ops,
+    });
   return ops;
 }

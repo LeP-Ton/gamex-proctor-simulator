@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { makeConfig, seconds } from "../src/engine/config.js";
+import { seconds } from "../src/engine/config.js";
+import { makeConfig } from "./legacy-config.js";
 import { Game, replayAt } from "../src/engine/game.js";
 import { buildPlan } from "../src/engine/schedule.js";
 import { normalBehavior, seatPosition } from "../src/engine/world.js";

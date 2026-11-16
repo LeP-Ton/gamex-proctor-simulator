@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { makeConfig, PRESET_SEEDS } from "../src/engine/config.js";
+import { PRESET_SEEDS } from "../src/engine/config.js";
+import { makeConfig } from "./legacy-config.js";
 import { buildPlan } from "../src/engine/schedule.js";
 import { sceneGeometry } from "../src/render/geometry.js";
 import type { ImageShape } from "../src/render/geometry.js";

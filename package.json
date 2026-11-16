@@ -8,15 +8,20 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
-    "test:browser": "npm run build && node tests/browser.mjs",
+    "test:browser": "npm run build && node tests/rig-browser.mjs --flows-only",
     "test:stress": "npm test && node tests/stress.mjs",
     "test:realtime": "npm run build && node tests/browser.mjs --realtime",
-    "test:motion": "npm run build && node tests/motion-browser.mjs"
+    "test:motion": "npm run build && node tests/rig-browser.mjs --recordings-only",
+    "test:rig": "npm run build && node tests/rig-browser.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/three": "0.187.0",
     "playwright": "^1.65.0",
     "typescript": "^5.7.0",
     "vite": "^6.4.0"
+  },
+  "dependencies": {
+    "three": "0.187.0"
   }
 }

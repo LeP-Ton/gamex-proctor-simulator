@@ -22,6 +22,7 @@ import type {
   RunRecord,
 } from "./engine/types.js";
 import { actorViews } from "./engine/world.js";
+import { rigDiagnostics } from "./render/rig-renderer.js";
 import {
   loadPhotoAssets,
   photoAssetsReady,
@@ -65,12 +66,14 @@ const timestamp = (tick: number) =>
     .padStart(2, "0")}`;
 const visualName = (version: GameConfig["visualVersion"]) =>
   version === VISUAL_VERSION
-    ? "连贯动作画面"
-    : version === "photo-3"
-      ? "照片质感画面"
-      : version === "cctv-2"
-        ? "监控画面 V2"
-        : "经典画面";
+    ? "三维监控画面"
+    : version === "motion-4"
+      ? "连贯动作画面"
+      : version === "photo-3"
+        ? "照片质感画面"
+        : version === "cctv-2"
+          ? "监控画面 V2"
+          : "经典画面";
 const pct = (n: number | null) =>
   n === null ? "—" : `${Math.round(n * 100)}%`;
 let difficulty: Difficulty = store.data.settings.difficulty;
@@ -190,7 +193,7 @@ async function preparePhotoAssets() {
     overlay.classList.add("load-failed");
     $("#asset-loading-title").textContent = "监控画面素材载入失败";
     $("#asset-loading-text").textContent =
-      "请检查网络后重试。已有巡查记录仍可从事件记录中查看。";
+      "请确认网络可用、浏览器允许图形加速后重试。已有巡查记录仍可从事件记录中查看。";
     $("#asset-retry").hidden = false;
   } finally {
     assetLoadPending = false;
@@ -205,6 +208,10 @@ function canStart() {
   );
   return false;
 }
+window.addEventListener("proctor-graphics-lost", () => {
+  pause("画面恢复");
+  notify("监控画面暂时中断，恢复后请继续巡查。");
+});
 function newSeed() {
   const bytes = crypto.getRandomValues(new Uint32Array(1));
   return `GX-${bytes[0].toString(36).toUpperCase()}`;
@@ -300,6 +307,7 @@ function start(tutorial = false, reuseConfig?: GameConfig) {
         debug: debugRequested,
       };
   config.visualVersion = VISUAL_VERSION;
+  config.ruleVersion = RULE_VERSION;
   game = new Game(tutorial ? buildTutorialPlan() : buildPlan(config));
   protectedGeometry.fill(undefined);
   mode = "playing";
@@ -333,6 +341,10 @@ function pause(reason = "手动暂停") {
   updateStats();
 }
 function resume() {
+  if (game.plan.config.visualVersion === "rig-5" && !photoAssetsReady()) {
+    notify("监控画面尚未恢复，请稍后继续。");
+    return;
+  }
   if (!paused || modalOpen) return;
   pauses.push({
     tick: game.tick,
@@ -965,6 +977,8 @@ if (import.meta.env.DEV || debugRequested) {
       sceneGeometry(game.plan, game.tick, scene, game.caught, game.records),
     replayAt,
     actorViews,
+    rig: (scene: number) =>
+      rigDiagnostics(game.plan, game.tick, scene, game.caught, game.records),
     fixture: (kind: keyof typeof CHEATS, variant: number) => {
       if (!start(false, { ...makeConfig(seed, difficulty), debug: true }))
         return;

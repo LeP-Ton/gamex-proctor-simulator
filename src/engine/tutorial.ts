@@ -1,5 +1,5 @@
 import { makeConfig, seconds } from "./config.js";
-import { buildPlan } from "./schedule.js";
+import { createPeople } from "./schedule.js";
 import type { PlannedEvent, Plan } from "./types.js";
 
 export const TUTORIAL_STEPS = [
@@ -19,7 +19,7 @@ export const TUTORIAL_STEPS = [
   },
   {
     from: 77,
-    until: 112,
+    until: 140,
     cameras: 6,
     title: "03 / 六路巡查，保持节奏",
     text: "全部机位上线。黄色材料传递和公共区查看资料都违规；正常离场、洗手和等候允许。放大不会暂停其他画面。",
@@ -29,9 +29,8 @@ export function buildTutorialPlan(): Plan {
   const config = {
     ...makeConfig("tutorial-v1", "standard"),
     tutorial: true,
-    duration: seconds(112),
+    duration: seconds(140),
   };
-  const base = buildPlan(config);
   const definitions: Array<
     [number, number, PlannedEvent["kind"], number[], number, number?]
   > = [
@@ -60,22 +59,22 @@ export function buildTutorialPlan(): Plan {
   // 教学仍然使用同一个引擎与人物迁移；只替换为逐步开放的固定机会。
   const visits: Plan["visits"] = [
     {
-      actorId: 7,
+      actorId: 41,
       scene: 4,
       slot: 3,
       depart: seconds(78),
-      arrive: seconds(82),
-      exit: seconds(105),
-      returned: seconds(109),
+      arrive: seconds(92),
+      exit: seconds(112),
+      returned: seconds(126),
     },
     {
       actorId: 3,
       scene: 5,
       slot: 3,
-      depart: seconds(78),
-      arrive: seconds(82),
-      exit: seconds(105),
-      returned: seconds(109),
+      depart: seconds(90),
+      arrive: seconds(104),
+      exit: seconds(124),
+      returned: seconds(138),
     },
   ];
   for (const e of events.filter((e) => e.scene > 3))
@@ -84,12 +83,12 @@ export function buildTutorialPlan(): Plan {
         actorId: id,
         scene: e.scene,
         slot,
-        depart: e.start - seconds(12),
-        arrive: e.start - seconds(8),
-        exit: e.end + seconds(4),
-        returned: e.end + seconds(8),
+        depart: e.start - seconds(24),
+        arrive: e.start - seconds(10),
+        exit: e.end + seconds(7),
+        returned: e.end + seconds(21),
         eventId: e.id,
       }),
     );
-  return { ...base, events, visits };
+  return { config, people: createPeople(), events, visits };
 }

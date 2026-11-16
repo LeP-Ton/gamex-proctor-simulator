@@ -4,6 +4,8 @@ import {
 } from "./legacy-geometry.js";
 import { sceneGeometry as monitorGeometry } from "./monitor-geometry.js";
 import { sceneGeometry as photoGeometry } from "./photo-geometry.js";
+import { sceneGeometry as motionGeometry } from "./motion-4-geometry.js";
+import { rigGeometry } from "./rig-geometry.js";
 import { actorViews, seatPosition } from "../engine/world.js";
 import { TICK_RATE, VISUAL_VERSION } from "../engine/config.js";
 import {
@@ -46,6 +48,15 @@ export type ImageShape = {
 };
 export type Shape =
   | {
+      kind: "rig-person";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      head: { x: number; y: number };
+      role: "person";
+    }
+  | {
       kind: "rect";
       x: number;
       y: number;
@@ -87,6 +98,41 @@ export interface DrawOp {
     y1: number;
     stops: [number, string][];
   };
+  rigContext?: {
+    plan: Plan;
+    tick: number;
+    scene: number;
+    caught: ReadonlySet<string>;
+    records: readonly RecordEntry[];
+  };
+}
+
+type GeometryResult = {
+  ops: DrawOp[];
+  actors: ActorView[];
+  backgroundCount: number;
+};
+type RigGeometryProvider = (
+  plan: Plan,
+  tick: number,
+  scene: number,
+  caught: ReadonlySet<string>,
+  records: readonly RecordEntry[],
+) => GeometryResult;
+type RigPickProvider = (
+  context: NonNullable<DrawOp["rigContext"]>,
+  x: number,
+  y: number,
+) => number | null;
+let rigGeometryProvider: RigGeometryProvider | undefined;
+let rigPickProvider: RigPickProvider | undefined;
+/** 浏览器注册真实三维骨骼投影和网格射线；引擎测试不依赖 DOM 或 GPU。 */
+export function registerRigGeometry(
+  geometry: RigGeometryProvider,
+  picker: RigPickProvider,
+) {
+  rigGeometryProvider = geometry;
+  rigPickProvider = picker;
 }
 
 // 投影只影响观察条件；事件计划及人物迁移仍使用引擎原始坐标。
@@ -558,6 +604,16 @@ export function sceneGeometry(
   caught: ReadonlySet<string> = new Set(),
   records: readonly RecordEntry[] = [],
 ): { ops: DrawOp[]; actors: ActorView[]; backgroundCount: number } {
+  if (plan.config.visualVersion === "rig-5")
+    return (rigGeometryProvider ?? rigGeometry)(
+      plan,
+      tick,
+      scene,
+      caught,
+      records,
+    );
+  if (plan.config.visualVersion === "motion-4")
+    return motionGeometry(plan, tick, scene, caught, records);
   if (plan.config.visualVersion === "photo-3")
     return photoGeometry(plan, tick, scene, caught);
   if (plan.config.visualVersion === "cctv-2")
@@ -646,6 +702,8 @@ export function sceneGeometry(
 
 export function contains(op: DrawOp, x: number, y: number): boolean {
   const s = op.shape;
+  if (s.kind === "rig-person")
+    return x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h;
   if (s.kind === "image") {
     if (s.mesh) {
       const uv = meshUV(s.mesh, x, y);
@@ -716,6 +774,8 @@ export function pick(
   y: number,
 ): number | null {
   if (x < 0 || y < 0 || x > WORLD_W || y > WORLD_H) return null;
+  const context = ops[0]?.rigContext;
+  if (context && rigPickProvider) return rigPickProvider(context, x, y);
   // 逆绘制顺序查找，家具和前景人物会真实遮挡后方命中区。
   for (let i = ops.length - 1; i >= 0; i--) {
     const op = ops[i];

@@ -5,6 +5,9 @@ import type { Person, Plan, PlannedEvent, Visit } from "./types.js";
 
 const overlap = (a: number, b: number, c: number, d: number) => a < d && c < b;
 type Reservation = { ids: number[]; start: number; end: number };
+class ScheduleConflict extends Error {
+  override name = "ScheduleConflict";
+}
 
 export function createPeople(): Person[] {
   const rng = new Random("gamex-stable-students-v1");
@@ -48,18 +51,45 @@ export function createPeople(): Person[] {
 }
 
 export function buildPlan(config: GameConfig): Plan {
+  // 首次完整保留原随机流；只有明确的贪心预约死路才确定性重排，不缩短任何窗口。
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return buildPlanAttempt(config, attempt);
+    } catch (error) {
+      if (!(error instanceof ScheduleConflict) || config.ruleVersion !== "1.1.0" || attempt >= 11)
+        throw error;
+    }
+  }
+}
+
+function buildPlanAttempt(config: GameConfig, attempt: number): Plan {
   const people = createPeople();
+  const retry = attempt === 0 ? "" : `|schedule-retry-${attempt}`;
   const rng = new Random(
-    `${config.seed}|events|${config.difficulty}|${config.duration}|${config.ruleVersion}`,
+    `${config.seed}|events|${config.difficulty}|${config.duration}|${config.ruleVersion}${retry}`,
   );
   const rules = DIFFICULTIES[config.difficulty];
   const events: PlannedEvent[] = [];
   const visits: Visit[] = [];
   const reservations: Reservation[] = [];
+  const homePassages: { room: number; start: number; end: number }[] = [];
+  const publicPassages: { scene: number; side: number; start: number; end: number }[] = [];
+  // 新版完整走门路线需要真实行走时间；旧规则保留原预约与随机结果。
+  const rig = config.ruleVersion === "1.1.0";
+  const travel = rig ? seconds(14) : BALANCE.travel;
+  const visitLead = rig ? seconds(10) : BALANCE.visitLead;
+  const visitTail = rig ? seconds(7) : BALANCE.visitTail;
+  const normalLength = rig
+    ? [seconds(44), seconds(50)]
+    : BALANCE.normalVisitLength;
   // 每一组预先拥有固定的时间区间；举报不会使后续机会增加或提前。
   const count = config.tutorial ? 8 : rules.count;
-  const opening = config.tutorial ? seconds(4) : BALANCE.opening;
-  const ending = BALANCE.endingRecovery;
+  const opening = rig
+    ? seconds(28)
+    : config.tutorial
+      ? seconds(4)
+      : BALANCE.opening;
+  const ending = rig ? seconds(28) : BALANCE.endingRecovery;
   const groups: number[] = [];
   for (let remaining = count; remaining > 0; ) {
     const progress = (count - remaining) / count;
@@ -87,6 +117,32 @@ export function buildPlan(config: GameConfig): Plan {
         ids.some((id) => r.ids.includes(id)) &&
         overlap(start, end, r.start, r.end),
     );
+  // 最长右过道约4.84秒，另含开门、跨门与镜头外连接；不能把排队代价挤成返程急跑。
+  const passageTime = seconds(8.5), headway = seconds(0.75);
+  const homeFree = (ids: number[], arrive: number, exit: number) => {
+    if (!rig) return true;
+    const rooms = ids.map((id) => people[id].room);
+    if (new Set(rooms).size !== rooms.length) return false;
+    return !homePassages.some((reserved) => rooms.includes(reserved.room) &&
+      (overlap(arrive - passageTime, arrive, reserved.start, reserved.end) ||
+       overlap(exit, exit + passageTime, reserved.start, reserved.end)));
+  };
+  const reserveHome = (id: number, arrive: number, exit: number) => {
+    if (!rig) return;
+    homePassages.push({ room: people[id].room, start: arrive - passageTime, end: arrive },
+      { room: people[id].room, start: exit, end: exit + passageTime });
+  };
+  const publicRanges = (arrive: number, exit: number, slots: number[]) => [-1, 1].flatMap((side) => {
+    const count = slots.filter((slot) => (slot < 2 ? -1 : 1) === side).length;
+    return count ? [{ side, start: arrive, end: arrive + count * headway },
+      { side, start: exit - count * headway, end: exit }] : [];
+  });
+  const publicFree = (scene: number, arrive: number, exit: number, slots: number[]) => !rig ||
+    publicRanges(arrive, exit, slots).every((range) => !publicPassages.some((reserved) =>
+      reserved.scene === scene && reserved.side === range.side && overlap(range.start, range.end, reserved.start, reserved.end)));
+  const reservePublic = (scene: number, arrive: number, exit: number, slots: number[]) => {
+    if (rig) publicPassages.push(...publicRanges(arrive, exit, slots).map((range) => ({ scene, ...range })));
+  };
   const availableSlots = (
     scene: number,
     depart: number,
@@ -96,16 +152,11 @@ export function buildPlan(config: GameConfig): Plan {
     for (let first = 0; first + n <= 4; first++) {
       const slots = Array.from({ length: n }, (_, i) => first + i);
       if (
-        !visits.some(
+        publicFree(scene, depart + travel, returned - travel, slots) && !visits.some(
           (v) =>
             v.scene === scene &&
             slots.includes(v.slot) &&
-            overlap(
-              depart + BALANCE.travel,
-              returned - BALANCE.travel,
-              v.arrive,
-              v.exit,
-            ),
+            overlap(depart + travel, returned - travel, v.arrive, v.exit),
         )
       )
         return slots;
@@ -145,6 +196,13 @@ export function buildPlan(config: GameConfig): Plan {
         for (const actor of candidates) {
           let actors = [actor.id];
           let relatedId: number | undefined;
+          const from =
+            kind === "restroom"
+              ? start - visitLead - travel
+              : prepare - BALANCE.actorRecovery;
+          const to =
+            end +
+            (kind === "restroom" ? visitTail + travel : BALANCE.actorRecovery);
           if (kind === "passing" || kind === "peeking") {
             const other = people.find(
               (p) =>
@@ -160,23 +218,20 @@ export function buildPlan(config: GameConfig): Plan {
             const other = candidates.find(
               (p) =>
                 p.id !== actor.id &&
-                free([p.id], start - seconds(10), end + seconds(8)),
+                // 新行程要检查从离座到回座的整段预约，不能只选短窗口空闲的同伴。
+                free(
+                  [p.id],
+                  rig ? from : start - seconds(10),
+                  rig ? to : end + seconds(8),
+                ) && homeFree([actor.id, p.id], from + travel, end + visitTail),
             );
             if (!other) continue;
             actors.push(other.id);
           }
-          const from =
-            kind === "restroom"
-              ? start - BALANCE.visitLead - BALANCE.travel
-              : prepare - BALANCE.actorRecovery;
-          const to =
-            end +
-            (kind === "restroom"
-              ? BALANCE.visitTail + BALANCE.travel
-              : BALANCE.actorRecovery);
           const reservedIds =
             relatedId === undefined ? actors : [...actors, relatedId];
           if (!free(reservedIds, from, to)) continue;
+          if (kind === "restroom" && !homeFree(actors, from + travel, end + visitTail)) continue;
           const slots =
             kind === "restroom"
               ? availableSlots(scene, from, to, actors.length)
@@ -194,19 +249,22 @@ export function buildPlan(config: GameConfig): Plan {
             end,
           };
           reservations.push({ ids: reservedIds, start: from, end: to });
-          if (kind === "restroom")
+          if (kind === "restroom") {
             actors.forEach((id, i) =>
               visits.push({
                 actorId: id,
                 scene,
                 slot: slots[i],
                 depart: from,
-                arrive: from + BALANCE.travel,
-                exit: end + BALANCE.visitTail,
+                arrive: from + travel,
+                exit: end + visitTail,
                 returned: to,
                 eventId: selected!.id,
               }),
             );
+            for (const id of actors) reserveHome(id, from + travel, end + visitTail);
+            reservePublic(scene, from + travel, end + visitTail, slots);
+          }
           break;
         }
         if (selected) {
@@ -216,7 +274,7 @@ export function buildPlan(config: GameConfig): Plan {
         }
       }
       if (!selected)
-        throw new Error(
+        throw new ScheduleConflict(
           `事件调度失败：${config.seed} / ${config.difficulty} / ${eventIndex} / ${kind}`,
         );
       eventIndex++;
@@ -227,7 +285,7 @@ export function buildPlan(config: GameConfig): Plan {
   for (let scene = 4; scene < 6; scene++) {
     for (
       let t = seconds(1);
-      t < config.duration - seconds(20);
+      t < config.duration - (rig ? normalLength[0] : seconds(20));
       t += normal.int(
         BALANCE.normalVisitSpacing[0],
         BALANCE.normalVisitSpacing[1],
@@ -236,11 +294,7 @@ export function buildPlan(config: GameConfig): Plan {
       const depart = t;
       const returned = Math.min(
         config.duration,
-        t +
-          normal.int(
-            BALANCE.normalVisitLength[0],
-            BALANCE.normalVisitLength[1],
-          ),
+        t + normal.int(normalLength[0], normalLength[1]),
       );
       const actor = normal
         .shuffle(
@@ -251,7 +305,7 @@ export function buildPlan(config: GameConfig): Plan {
             [p.id],
             depart - BALANCE.normalVisitMargin,
             returned + BALANCE.normalVisitMargin,
-          ),
+          ) && homeFree([p.id], depart + travel, returned - travel),
         );
       const slots = availableSlots(scene, depart, returned, 1);
       if (!actor || !slots) continue;
@@ -260,10 +314,12 @@ export function buildPlan(config: GameConfig): Plan {
         scene,
         slot: slots[0],
         depart,
-        arrive: depart + BALANCE.travel,
-        exit: returned - BALANCE.travel,
+        arrive: depart + travel,
+        exit: returned - travel,
         returned,
       });
+      reserveHome(actor.id, depart + travel, returned - travel);
+      reservePublic(scene, depart + travel, returned - travel, slots);
       reservations.push({
         ids: [actor.id],
         start: depart - BALANCE.normalVisitMargin,

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { makeConfig } from "../src/engine/config.js";
+import { makeConfig } from "./legacy-config.js";
 import { buildPlan } from "../src/engine/schedule.js";
 import { contains, sceneGeometry } from "../src/render/geometry.js";
 import type { DrawOp } from "../src/render/geometry.js";

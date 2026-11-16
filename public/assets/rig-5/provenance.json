@@ -1,0 +1,287 @@
+{
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "author": "Innerscene Corp，基于 MakeHuman / MPFB 的 CC0 图形素材及作者原创动作",
+  "sourceCopyright": "Authored by Innerscene Corp (innerscene.com). Public domain: dedicated under CC0 1.0 Universal, https://creativecommons.org/publicdomain/zero/1.0/. Free to use, modify and redistribute for any purpose, with no credit required.",
+  "versions": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "meshoptimizer": "1.3.0",
+    "sharp": "0.35.5"
+  },
+  "processing": {
+    "simplifyRatio": 0.1,
+    "simplifyError": 0.006,
+    "lockBorder": true,
+    "keepClothingTopology": true,
+    "colorTextureMax": 1024,
+    "normalTextureMax": 512,
+    "format": "WebP",
+    "runtimeCompressionDecoder": false
+  },
+  "models": [
+    {
+      "id": "maya",
+      "page": "https://www.innerscene.com/tools/library/3d-parts/locomotion-collection-maya-3d-person-animated-1499b2fd",
+      "download": "https://files.innerscene.com/library/locomotion-collection-maya-3d-person-animated-1499b2fd/565cfb8a45b8a67a79c4/locomotion-collection-maya-3d-person-animated.glb",
+      "sourceSha256": "fabac991096e806f87ac71013865d4e4fac38d041dd64337c0173859b8249b15",
+      "sourceBytes": 21333012,
+      "file": "maya.glb",
+      "bytes": 1776456,
+      "sha256": "5ef1f0c50c2b015135de887757be7f52da8b28532ca5a1aa639a714be3a21cc5",
+      "removed": [
+        "Hairline | fine scalp roots",
+        "Phone",
+        "teeth_base"
+      ],
+      "meshes": [
+        {
+          "name": "eyebrow006",
+          "triangles": 72
+        },
+        {
+          "name": "eyelashes01",
+          "triangles": 136
+        },
+        {
+          "name": "female_casualsuit01",
+          "triangles": 3384
+        },
+        {
+          "name": "low-poly",
+          "triangles": 152
+        },
+        {
+          "name": "base",
+          "triangles": 7160
+        },
+        {
+          "name": "Ankle lining l",
+          "triangles": 40
+        },
+        {
+          "name": "Ankle lining r",
+          "triangles": 40
+        },
+        {
+          "name": "ponytail01",
+          "triangles": 2396
+        },
+        {
+          "name": "shoes03",
+          "triangles": 798
+        }
+      ],
+      "triangles": 14178,
+      "bones": [
+        "foot_l",
+        "ball_l",
+        "foot_r",
+        "ball_r",
+        "Root",
+        "pelvis",
+        "spine_01",
+        "spine_02",
+        "spine_03",
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "index_01_l",
+        "index_02_l",
+        "index_03_l",
+        "middle_01_l",
+        "middle_02_l",
+        "middle_03_l",
+        "pinky_01_l",
+        "pinky_02_l",
+        "pinky_03_l",
+        "ring_01_l",
+        "ring_02_l",
+        "ring_03_l",
+        "thumb_01_l",
+        "thumb_02_l",
+        "thumb_03_l",
+        "lowerarm_prox_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "held_accessory",
+        "index_01_r",
+        "index_02_r",
+        "index_03_r",
+        "middle_01_r",
+        "middle_02_r",
+        "middle_03_r",
+        "pinky_01_r",
+        "pinky_02_r",
+        "pinky_03_r",
+        "ring_01_r",
+        "ring_02_r",
+        "ring_03_r",
+        "thumb_01_r",
+        "thumb_02_r",
+        "thumb_03_r",
+        "lowerarm_prox_r",
+        "neck_01",
+        "head",
+        "thigh_l",
+        "calf_l",
+        "thigh_r",
+        "calf_r"
+      ],
+      "animations": [
+        {
+          "name": "Idle_Standing",
+          "channels": 168
+        },
+        {
+          "name": "Walk_Relaxed",
+          "channels": 168
+        },
+        {
+          "name": "Sit_Stand",
+          "channels": 168
+        }
+      ],
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_materials_specular",
+        "KHR_texture_transform",
+        "EXT_texture_webp"
+      ]
+    },
+    {
+      "id": "sam",
+      "page": "https://www.innerscene.com/tools/library/3d-parts/locomotion-collection-sam-3d-person-animated-dc23800f",
+      "download": "https://files.innerscene.com/library/locomotion-collection-sam-3d-person-animated-dc23800f/735aec6a564c1def48e8/locomotion-collection-sam-3d-person-animated.glb",
+      "sourceSha256": "b29700eeba1607d879f85f0a93a58ad458d5397ec509226826b0868b2ce40777",
+      "sourceBytes": 21872144,
+      "file": "sam.glb",
+      "bytes": 2128932,
+      "sha256": "343c25e9735e9377103908cb91663962c7a80f5c58b2abdfb612b4c0f77cb994",
+      "removed": [
+        "Hairline | fine scalp roots",
+        "Phone",
+        "teeth_base"
+      ],
+      "meshes": [
+        {
+          "name": "eyebrow001",
+          "triangles": 84
+        },
+        {
+          "name": "eyelashes01",
+          "triangles": 148
+        },
+        {
+          "name": "low-poly",
+          "triangles": 148
+        },
+        {
+          "name": "male_casualsuit02",
+          "triangles": 4120
+        },
+        {
+          "name": "Ankle lining l",
+          "triangles": 40
+        },
+        {
+          "name": "Ankle lining r",
+          "triangles": 40
+        },
+        {
+          "name": "base",
+          "triangles": 6718
+        },
+        {
+          "name": "shoes01",
+          "triangles": 512
+        },
+        {
+          "name": "short01",
+          "triangles": 2118
+        }
+      ],
+      "triangles": 13928,
+      "bones": [
+        "foot_l",
+        "ball_l",
+        "foot_r",
+        "ball_r",
+        "Root",
+        "pelvis",
+        "spine_01",
+        "spine_02",
+        "spine_03",
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "index_01_l",
+        "index_02_l",
+        "index_03_l",
+        "middle_01_l",
+        "middle_02_l",
+        "middle_03_l",
+        "pinky_01_l",
+        "pinky_02_l",
+        "pinky_03_l",
+        "ring_01_l",
+        "ring_02_l",
+        "ring_03_l",
+        "thumb_01_l",
+        "thumb_02_l",
+        "thumb_03_l",
+        "lowerarm_prox_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "held_accessory",
+        "index_01_r",
+        "index_02_r",
+        "index_03_r",
+        "middle_01_r",
+        "middle_02_r",
+        "middle_03_r",
+        "pinky_01_r",
+        "pinky_02_r",
+        "pinky_03_r",
+        "ring_01_r",
+        "ring_02_r",
+        "ring_03_r",
+        "thumb_01_r",
+        "thumb_02_r",
+        "thumb_03_r",
+        "lowerarm_prox_r",
+        "neck_01",
+        "head",
+        "thigh_l",
+        "calf_l",
+        "thigh_r",
+        "calf_r"
+      ],
+      "animations": [
+        {
+          "name": "Idle_Standing",
+          "channels": 168
+        },
+        {
+          "name": "Walk_Relaxed",
+          "channels": 168
+        },
+        {
+          "name": "Sit_Stand",
+          "channels": 168
+        }
+      ],
+      "extensions": [
+        "KHR_materials_specular",
+        "EXT_texture_webp"
+      ]
+    }
+  ]
+}
