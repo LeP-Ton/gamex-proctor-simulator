@@ -5,7 +5,7 @@
 - 需求 ID：REQ-20261116130906。
 - 来源：用户要求将“会话-14”的插画可玩首版与当前写实版拆成两个分支，同时部署到 GitHub Pages。
 - 创建时间：2026-11-16 13:09:06，Asia/Shanghai。
-- 状态：两游戏分支已在公开 GitHub 创建；两版测试/构建、站点组装及本地浏览器验收通过；main 发布代码尚未提交，最终双版本云端部署和线上访问待验。
+- 状态：技术交付完成。两公开源码分支、组合 Pages、本地与云端测试、线上真实交互、存档隔离与资源核验通过；用户人工体验待反馈。
 - 权威入口：本仓库 main 分支的本目录。游戏源码分别在两个版本分支维护。
 - 关联聊天：2026-11-16 本次双版本拆分聊天，会话-57—58；聊天 ID 不可获取。
 
@@ -38,12 +38,13 @@
 - 已完成：两公开源码分支、插画 16 项测试与构建、写实 36 项测试与构建、4 项组装测试、本地组合站点 8 组浏览器验收。
 - 本地浏览器包含 20 次真实指针举报、两种尺寸、真实完成局与存档隔离、写实原档字节不变和复盘、旧书签跳转、无控制台错误及 404。
 - 两版本分支的云端 hook 已成功请求 main；当时 main 仍使用旧发布流程，不算最终双版本部署验收。
-- 待完成：main 代码提交、组合云端工作流、最终 Pages 部署及线上检查；最终结果由主代理补齐。
+- 已完成：main 实现提交 `e2e3661`、部署提交 `2ba42a6`；[联合发布任务 43810840015](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43810840015)的 4 项组装、16 项插画、36 项写实测试及双版构建部署全部通过。
+- 正式 Pages 的 8 组浏览器验收通过，覆盖与本地相同的实际流程；18 个页面和资源均为 200，Chrome 响应正文与已验收本地包逐字节一致。线上截图独立静态复查通过，证据位于 `artifacts/dual-pages-online/`。
 - 用户对双版本入口和体验的人工反馈尚未确认。
 
 ## 入口与关联记录
 
-- [版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)、[插画版](https://lep-ton.github.io/gamex-proctor-simulator/illustrated/)、[写实版](https://lep-ton.github.io/gamex-proctor-simulator/realistic/)：本次部署尚待线上验证。
+- [版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)、[插画版](https://lep-ton.github.io/gamex-proctor-simulator/illustrated/)、[写实版](https://lep-ton.github.io/gamex-proctor-simulator/realistic/)：均已上线并验证。
 - [插画源码](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/illustrated)、[写实源码](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/realistic)。
 - [双版本发布阶段记录](20261116130906-双版本发布.md)。
 - 前置需求：[REQ-20261113124409 游戏实现与历次视觉升级](../REQ-20261113124409-监考模拟器/README.md)。
