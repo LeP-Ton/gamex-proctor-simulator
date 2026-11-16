@@ -2,45 +2,71 @@
 
 在「考场视频巡查系统」中同时观察六路画面，发现明确违规后直接点击人物或物品。单局固定六分钟，挑战同种子下的最高成绩。
 
-当前使用连贯动作监控画面：20 种本地照片底片，加上每位考生固定的体态、衣色和动作节奏差异。人物以同一张底片连续变形，连接头肩、肘腕、书写、肩背舒展与步态，避免直接切换姿势照片和几何长臂。桌前层与实际拾取共用同一网格和透明轮廓。
+项目提供独立维护的插画首版和写实新版。下述连贯人物与照片素材说明对应 `codex/realistic`；插画首版保留原有画面和可玩流程。
+
+写实新版使用连贯动作监控画面：20 种本地照片底片，加上每位考生固定的体态、衣色和动作节奏差异。人物以同一张底片连续变形，连接头肩、肘腕、书写、肩背舒展与步态，避免直接切换姿势照片和几何长臂。桌前层与实际拾取共用同一网格和透明轮廓。
 
 图片均为 AI 生成原创素材，运行时不调用 AI 或远程素材服务。首次进入会等待约 4.5MB 本地素材解码，失败可重试。新开局使用 `motion-4`；三代旧记录继续按原画面复盘，四种视觉条件的最佳成绩分别保存，计分机会保持不变。
 
-## GitHub Pages 发布
+## GitHub Pages 双版本发布
 
-在线试玩：**[打开监考模拟器最新版](https://lep-ton.github.io/gamex-proctor-simulator/?v=motion-4)**。
+本次双版本分支和本地检查已完成，主发布编排尚未提交，最终云端部署与线上访问待验证。以下为固定发布入口：
 
-源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；2026-11-16 已更新 `motion-4` 连贯动作画面。
+| 版本 | Pages 入口 | 独立源码分支 |
+| --- | --- | --- |
+| 版本选择页 | [选择两个可玩版本](https://lep-ton.github.io/gamex-proctor-simulator/) | `main` 负责组装与发布 |
+| 插画首版 | [打开插画版](https://lep-ton.github.io/gamex-proctor-simulator/illustrated/) | [codex/illustrated](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/illustrated) |
+| 写实新版 | [打开写实版](https://lep-ton.github.io/gamex-proctor-simulator/realistic/) | [codex/realistic](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/realistic) |
 
-发布配置位于 `.github/workflows/pages.yml`：main 的代码、资源、测试或构建配置更新会先运行核心测试，再构建 `dist/` 并部署；也可手动运行工作流。纯文档更新不重复部署。
+两个游戏分支已在[公开仓库](https://github.com/LeP-Ton/gamex-proctor-simulator)创建。插画版基于首版运行源码，增加独立保存键和部署适配；写实版保留当前连贯动作实现。本次不修改两版玩法和平衡参数。
 
-`vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
+Pages 由 main 的 `.github/workflows/pages.yml` 统一发布：先把两个分支锁定为完整 SHA，分别安装依赖、测试和构建，再由 `scripts/build-pages.mjs` 生成一份包含两个子目录和选择页的 `dist/`。任何一版失败均不部署，避免两次发布互相覆盖。`manifest.json` 可核对每版的分支、源提交、入口与保存键。
 
-首次发布见[发布记录](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261113151338-GitHubPages发布.md)；当前版本见[连贯动作返修与线上验证](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)和[成功的部署任务](https://github.com/LeP-Ton/gamex-proctor-simulator/actions/runs/43796800742)。素材与原始生成提示词见[原素材说明](public/assets/photo-3/README.md)及[新增人物说明](public/assets/motion-4/README.md)。
+版本分支更新通过薄工作流请求 `workflow_dispatch main`，部署始终在 main 上执行。根目录的旧 `?v=...` 或 `?debug=...` 书签进入写实版并保留查询参数与片段；普通根首页显示两个版本供选择。
 
-## 本地启动
+两个地址同源，但存档键不同：插画版为 `gamex-proctor-illustrated-v1`，写实版继续使用 `gamex-proctor-v1`，保留当前已有记录。两个版本的设置和成绩不混写。
 
-需要 Node.js 20.19+（本次使用 20.20.x）。
+双版本方案、基线与验收见 [REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。此前单写实版的发布记录仍保留在[连贯动作阶段](.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116104702-连贯动作返修.md)，不能把此前部署结果当作本次双版本已上线。
+
+## 本地启动与分支
+
+需要 Node.js 20.19+。进入项目根目录后，在已保存改动的工作区选择要开发的版本；日常写实开发默认使用 `codex/realistic`：
 
 ```sh
-cd proctor-simulator
+git switch codex/realistic
 npm ci
 npm run dev
 ```
 
-打开终端输出的本地地址，点击「开始巡查」。首次建议选择「新手教学」。在项目目录内执行命令时，无须再次 `cd`。
+开发或试玩插画首版时切换分支，再安装该分支锁定的依赖：
 
 ```sh
-npm run build       # 类型检查并生成 dist/
-npm run preview     # 预览生产构建
-npm test            # 引擎、可见性、拾取、计分、调度与复盘测试
-npm run test:stress # 三档难度共 15,000 组种子压力检查
-npm run test:browser   # 生产构建 + 浏览器全流程及两种尺寸验收
-npm run test:realtime  # 不快进的真实六分钟正式考试
-npm run test:motion    # 实际 Canvas 动态录像、动作边界与帧间隔检查
+git switch codex/illustrated
+npm ci
+npm run dev
 ```
 
-浏览器测试优先使用本机 Google Chrome 的独立临时配置；没有安装 Chrome 时，先执行 `npx playwright install chromium`。也可以通过 `PROCTOR_BROWSER_PATH` 指定测试浏览器路径。测试会自行启动并关闭本地生产预览，截图和 JSON 报告写入 `artifacts/`。
+两版均支持：
+
+```sh
+npm run build       # 类型检查并生成该版本的 dist/
+npm run preview     # 预览该版本构建
+npm test            # 运行该版本自己的核心测试
+npm run test:browser   # 该版本的完整浏览器流程与两种尺寸检查
+npm run test:realtime  # 不快进的真实六分钟正式考试
+```
+
+写实版另有 `npm run test:motion`，用于实际 Canvas 录像、动作边界和帧间隔检查。浏览器测试使用本机 Chrome 的隔离临时配置；也可通过 `PROCTOR_BROWSER_PATH` 指定浏览器。没有 Chrome 时先执行 `npx playwright install chromium`。
+
+发布维护在 main 上进行：
+
+```sh
+git switch main
+npm run test:pages          # 只需 Node，验证组合产物与兼容入口
+npm run test:pages-browser  # 需先组装 dist/，检查双版交互与同源存档隔离
+```
+
+`npm run build:pages -- --illustrated-dist ... --realistic-dist ... --output dist --illustrated-sha ... --realistic-sha ...` 接收两版已构建目录及各自完整 SHA。云端工作流自动准备这些来源；main 的普通 `npm run build` 仅构建保留的应用快照，不代表双版本组合发布。
 
 ## 操作与规则
 
@@ -101,4 +127,4 @@ scripts/               # 可选离线素材准备工具；正常运行和构建�
 
 实际结果见 [TESTING.md](TESTING.md)。已知边界：桌面单机、原创照片素材与程序动作合成、浏览器本地存储；人物仍为二维照片与网格合成，基础面孔数量有限，大角度动作和局部肢体可能保留合成痕迹。没有服务器排行榜、跨设备同步、视频导出或完整无视觉辅助操作。后续计划见 [TODO.md](TODO.md)。
 
-需求与实现记录入口：[REQ-20261113124409](.agentdocs/workflow/REQ-20261113124409-监考模拟器/README.md)。
+需求入口：[游戏实现 REQ-20261113124409](.agentdocs/workflow/REQ-20261113124409-监考模拟器/README.md)；[双版本分支发布 REQ-20261116130906](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。

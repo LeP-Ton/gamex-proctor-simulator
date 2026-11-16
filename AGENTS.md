@@ -6,13 +6,17 @@
 - `src/engine/` 负责种子随机、调度、世界状态、固定步长、举报及复盘；不依赖 DOM。
 - `src/render/` 负责共享场景几何、绘制与按绘制顺序拾取；隐藏事件状态不得改变正常悬停。
 - `src/ui/` 与 `src/main.ts` 负责界面及输入；`src/storage.ts` 管理本地成绩。
-- `npm run dev` 启动，`npm run build` 类型检查与生产构建，`npm test` 运行核心约束测试。
+- `main` 是版本选择页与组合发布的编排分支；游戏源码分别在 `codex/illustrated`（插画首版）和 `codex/realistic`（写实新版）。日常写实开发默认使用后者，插画版改动在前者进行；修改前检查分支和工作区。
+- 游戏源码分支使用 `npm run dev` 启动、`npm run build` 构建、`npm test` 运行核心测试。`main` 的站点检查为 `npm run test:pages`，组合产物的浏览器检查为 `npm run test:pages-browser`；main 保留的应用源码用于历史参考，线上游戏以固定版本分支提交为准。
 - 计分时钟为整数固定步长；有效区间为开始包含、结束不包含。计分事件安排与装饰行为随机流独立。
 - 复盘必须从实际种子和输入日志重建，禁止修改原局；正式界面不泄露目标或倒计时。
 - 参数与规则版本集中在 `src/engine/config.ts`。规则变更须更新版本，避免混排成绩。
 - 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
-- GitHub Pages 由 `.github/workflows/pages.yml` 对 main 的运行相关变更自动测试、构建和部署；GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容仓库子路径。
+- GitHub Pages 只发布一份同时包含两版的产物：根目录选择页、`illustrated/`、`realistic/`。`main` 的 `.github/workflows/pages.yml` 先解析两个分支为固定提交，分别测试构建，再统一组装、上传和部署；任一版失败均不发布。
+- 版本分支的薄工作流通过 `workflow_dispatch` 请求 main 发布，不能分别覆盖 Pages；main 执行部署以兼容 `github-pages` 环境的分支策略。`manifest.json` 记录两版分支、完整 SHA、路径与保存键。
+- GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容两个子目录；根目录旧 `?v=...` / `?debug=...` 书签进入写实版并保留查询和片段。
+- 两个子路径同源，必须显式隔离存档：插画版使用 `gamex-proctor-illustrated-v1`，写实版保留 `gamex-proctor-v1`。不得让旧插画界面读取或改写新版记录。
 - `.npmrc` 和锁文件使用公开 npm 源，避免把本机内网镜像写入外部构建所需的下载地址。
-- 当前画面为本地照片质感素材与 Canvas 动作组合；素材位于 `public/assets/photo-3/`，来源及提示词同目录保存。运行时不调用 AI；图片解码完成后才允许开局，拾取共用实际透明轮廓与分层遮挡。
+- 写实版画面为本地照片质感素材与 Canvas 动作组合；素材位于 `public/assets/photo-3/`，来源及提示词同目录保存。运行时不调用 AI；图片解码完成后才允许开局，拾取共用实际透明轮廓与分层遮挡。
 - 视觉条件由 `visualVersion` 隔离成绩，不纳入计分事件随机流；经典版及 V2 记录分别使用冻结的 `legacy-geometry.ts`、`monitor-geometry.ts` 复盘。素材裁剪与掩码由可选离线脚本生成，不应手改生成数据。
 - 连贯动作由 `candidate-motion.ts` 按种子、tick 和只读举报记录重建；`photo-mesh.ts` 共用正反映射，`mesh-renderer.ts` 批量生成 GPU 图集并提供 Canvas 降级。V3 使用 `photo-geometry.ts` 冻结复盘；不要为新画面修改旧版共享的正常行为和迁移。

@@ -1,19 +1,13 @@
-name: 发布监考模拟器到 GitHub Pages
+name: 同时发布插画版和写实版
 
 on:
   push:
     branches: [main]
     paths:
-      - "src/**"
-      - "public/**"
-      - "tests/**"
-      - "index.html"
-      - "vite.config.ts"
-      - "package.json"
-      - "package-lock.json"
-      - ".npmrc"
-      - "tsconfig*.json"
       - ".github/workflows/pages.yml"
+      - "scripts/build-pages.mjs"
+      - "sites/**"
+      - "tests/pages.test.mjs"
   workflow_dispatch:
 
 permissions:
@@ -25,44 +19,97 @@ concurrency:
 
 jobs:
   build:
-    name: 测试与构建
+    name: 锁定两版源码并测试构建
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: read
     steps:
-      - name: 检出源码
+      - name: 检出发布编排
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: 配置 Node.js
         uses: actions/setup-node@v7
         with:
           node-version: "22"
-          cache: npm
-      - name: 安装依赖
+      - name: 解析并锁定两个版本的提交
+        id: refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          illustrated_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/codex/illustrated" --jq '.object.sha')"
+          realistic_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/codex/realistic" --jq '.object.sha')"
+          if [[ ! "$illustrated_sha" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$realistic_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '无法锁定两个版本的完整提交。\n' >&2
+            exit 1
+          fi
+          printf 'illustrated_sha=%s\nrealistic_sha=%s\n' "$illustrated_sha" "$realistic_sha" >> "$GITHUB_OUTPUT"
+      - name: 检出插画首版的固定提交
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.refs.outputs.illustrated_sha }}
+          path: sources/illustrated
+          persist-credentials: false
+      - name: 检出写实新版的固定提交
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.refs.outputs.realistic_sha }}
+          path: sources/realistic
+          persist-credentials: false
+      - name: 检查双版本站点组装
+        run: node --test tests/pages.test.mjs
+      - name: 安装插画版依赖
+        working-directory: sources/illustrated
         run: npm ci
-      - name: 运行核心测试
+      - name: 运行插画版核心测试
+        working-directory: sources/illustrated
         run: npm test
-      - name: 构建静态游戏
+      - name: 构建插画版
+        working-directory: sources/illustrated
         run: npm run build
+      - name: 安装写实版依赖
+        working-directory: sources/realistic
+        run: npm ci
+      - name: 运行写实版核心测试
+        working-directory: sources/realistic
+        run: npm test
+      - name: 构建写实版
+        working-directory: sources/realistic
+        run: npm run build
+      - name: 合并两个版本和选择页
+        env:
+          ILLUSTRATED_SHA: ${{ steps.refs.outputs.illustrated_sha }}
+          REALISTIC_SHA: ${{ steps.refs.outputs.realistic_sha }}
+        run: |
+          node scripts/build-pages.mjs \
+            --illustrated-dist sources/illustrated/dist \
+            --realistic-dist sources/realistic/dist \
+            --output dist \
+            --illustrated-sha "$ILLUSTRATED_SHA" \
+            --realistic-sha "$REALISTIC_SHA"
       - name: 配置 Pages
         uses: actions/configure-pages@v6
-      - name: 上传构建产物
+      - name: 上传包含两版的唯一站点产物
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
-    name: 部署公开试玩
+    name: 部署两个可玩版本
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: 部署到 GitHub Pages
+      - name: 一次部署完整双版本站点
         id: deployment
         uses: actions/deploy-pages@v5

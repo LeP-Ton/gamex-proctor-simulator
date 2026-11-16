@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101b25" />
+    <meta name="description" content="选择监考模拟器的插画首版或写实新版，开始六路考场巡查。" />
+    <title>监考模拟器 · 选择版本</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./style.css" />
+    <script>
+      // 旧试玩书签仍进入写实版；普通首页保留两个版本的选择。
+      const legacyQuery = new URLSearchParams(location.search);
+      if (legacyQuery.has("v") || legacyQuery.has("debug")) {
+        const target = new URL("./realistic/", location.href);
+        target.search = location.search;
+        target.hash = location.hash;
+        location.replace(target.href);
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <header class="page-heading">
+        <span class="eyebrow"><span class="status-dot"></span> GAMEX · 监考模拟器</span>
+        <h1>选择画面版本</h1>
+        <p>观察六路考场画面，发现明确违规，及时点击举报。</p>
+      </header>
+      <section class="versions" aria-label="两个可玩版本">
+        <article class="version illustrated">
+          <div class="card-top"><span class="version-tag">经典体验</span><span class="number">01</span></div>
+          <div class="version-icon" aria-hidden="true">✎</div>
+          <h2>插画首版</h2>
+          <p>保留最初可玩版本的插画人物与考场，动作清楚，画面轻快。</p>
+          <ul><li>原版插画画面</li><li>六屏巡查与完整考试</li><li>教学、结算与事件复盘</li></ul>
+          <a class="play" href="./illustrated/">开始插画版 <span aria-hidden="true">↗</span></a>
+        </article>
+        <article class="version realistic">
+          <div class="card-top"><span class="version-tag">当前新版</span><span class="number">02</span></div>
+          <div class="version-icon" aria-hidden="true">◉</div>
+          <h2>写实新版</h2>
+          <p>照片质感的考场与人物，加入连贯动作和不同考生的细小变化。</p>
+          <ul><li>照片质感画面</li><li>连续人物动作与更多外观</li><li>六屏巡查、教学与复盘</li></ul>
+          <a class="play" href="./realistic/">开始写实版 <span aria-hidden="true">↗</span></a>
+        </article>
+      </section>
+      <p class="save-note"><span aria-hidden="true">◇</span> 两个版本的设置与成绩分开保存，可随时切换体验。</p>
+      <footer>考场视频巡查系统 · 中文单机观察游戏</footer>
+    </main>
+  </body>
+</html>

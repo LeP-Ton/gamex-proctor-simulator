@@ -11,7 +11,10 @@
     "test:browser": "npm run build && node tests/browser.mjs",
     "test:stress": "npm test && node tests/stress.mjs",
     "test:realtime": "npm run build && node tests/browser.mjs --realtime",
-    "test:motion": "npm run build && node tests/motion-browser.mjs"
+    "test:motion": "npm run build && node tests/motion-browser.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "test:pages": "node --test tests/pages.test.mjs",
+    "test:pages-browser": "node tests/pages-browser.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
