@@ -11,8 +11,10 @@
 - 复盘必须从实际种子和输入日志重建，禁止修改原局；正式界面不泄露目标或倒计时。
 - 参数与规则版本集中在 `src/engine/config.ts`。规则变更须更新版本，避免混排成绩。
 - 实际代码变更须维护对应需求 README 和阶段记录，不在本文件堆积阶段进度。
-- GitHub Pages 由 `.github/workflows/pages.yml` 对 main 的运行相关变更自动测试、构建和部署；GitHub 远程名为 `github`，与 Sites 源仓库分开管理。Vite 使用相对资源路径以兼容仓库子路径。
+- 本分支为 `codex/realistic` 写实版；`codex/illustrated` 保留插画首版，`main` 固定两版提交后联合构建部署 Pages。版本分支工作流只请求 main，不独立覆盖整站。Vite 使用相对路径兼容子目录。
 - `.npmrc` 和锁文件使用公开 npm 源，避免把本机内网镜像写入外部构建所需的下载地址。
 - 当前画面为本地照片质感素材与 Canvas 动作组合；素材位于 `public/assets/photo-3/`，来源及提示词同目录保存。运行时不调用 AI；图片解码完成后才允许开局，拾取共用实际透明轮廓与分层遮挡。
 - 视觉条件由 `visualVersion` 隔离成绩，不纳入计分事件随机流；经典版及 V2 记录分别使用冻结的 `legacy-geometry.ts`、`monitor-geometry.ts` 复盘。素材裁剪与掩码由可选离线脚本生成，不应手改生成数据。
 - 连贯动作由 `candidate-motion.ts` 按种子、tick 和只读举报记录重建；`photo-mesh.ts` 共用正反映射，`mesh-renderer.ts` 批量生成 GPU 图集并提供 Canvas 降级。V3 使用 `photo-geometry.ts` 冻结复盘；不要为新画面修改旧版共享的正常行为和迁移。
+
+- 写实版保留 `gamex-proctor-v1` 存档键，以延续原入口历史；插画版使用独立键，不应互相读取或复制新版局到旧播放器。

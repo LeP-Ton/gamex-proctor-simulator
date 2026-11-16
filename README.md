@@ -1,4 +1,8 @@
-# GameX · 监考模拟器
+# GameX · 监考模拟器 · 写实版
+
+当前版本分支：`codex/realistic`，延续连贯动作版。游戏源码在此分支维护，`main` 负责同时发布两个版本。
+
+[选择其他版本](https://lep-ton.github.io/gamex-proctor-simulator/) · [双版本发布权威记录](https://github.com/LeP-Ton/gamex-proctor-simulator/blob/main/.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
 
 在「考场视频巡查系统」中同时观察六路画面，发现明确违规后直接点击人物或物品。单局固定六分钟，挑战同种子下的最高成绩。
 
@@ -8,11 +12,11 @@
 
 ## GitHub Pages 发布
 
-在线试玩：**[打开监考模拟器最新版](https://lep-ton.github.io/gamex-proctor-simulator/?v=motion-4)**。
+在线试玩：**[打开监考模拟器最新版](https://lep-ton.github.io/gamex-proctor-simulator/realistic/?v=motion-4)**。
 
 源码仓库：[LeP-Ton/gamex-proctor-simulator](https://github.com/LeP-Ton/gamex-proctor-simulator)，已按用户明确授权设为公开；2026-11-16 已更新 `motion-4` 连贯动作画面。
 
-发布配置位于 `.github/workflows/pages.yml`：main 的代码、资源、测试或构建配置更新会先运行核心测试，再构建 `dist/` 并部署；也可手动运行工作流。纯文档更新不重复部署。
+本分支的 `.github/workflows/pages.yml` 在游戏代码更新时请求 main 中央工作流。中央工作流固定插画与写实分支的提交，分别测试构建后一次发布两个子目录，任一版失败都保留上次整站。
 
 `vite.config.ts` 使用相对资源路径，兼容 GitHub Pages 仓库子路径和根目录部署。浏览器记录按访问域名保存，换域名不会自动迁移旧成绩。
 
