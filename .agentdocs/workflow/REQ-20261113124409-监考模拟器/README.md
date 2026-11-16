@@ -1,5 +1,7 @@
 # GameX 监考模拟器
 
+当前三维真实版源码与验收权威入口在 [codex/realistic 的三维返修阶段](https://github.com/LeP-Ton/gamex-proctor-simulator/blob/codex/realistic/.agentdocs/workflow/REQ-20261113124409-监考模拟器/20261116134618-三维人物与场景返修.md)：实现 `bbe42ab`，独立任务 `43818908877`、53项核心、15,000组调度、实际动态录像与线上验证通过。本 main 文件保留此前各阶段历史，游戏由独立版本分支发布。
+
 - 需求 ID：REQ-20261113124409
 - 来源：用户粘贴的《监考模拟器 Codex 开发提示词 V2.0》全文。
 - 创建时间：2026-11-13 12:44:09，Asia/Shanghai。

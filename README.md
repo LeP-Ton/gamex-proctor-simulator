@@ -9,7 +9,7 @@
 | 插画首版 | [打开插画版](https://lep-ton.github.io/gamex-proctor-illustrated/) | [codex/illustrated](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/illustrated) | [gamex-proctor-illustrated](https://github.com/LeP-Ton/gamex-proctor-illustrated) |
 | 写实版 | [打开写实版](https://lep-ton.github.io/gamex-proctor-realistic/) | [codex/realistic](https://github.com/LeP-Ton/gamex-proctor-simulator/tree/codex/realistic) | [gamex-proctor-realistic](https://github.com/LeP-Ton/gamex-proctor-realistic) |
 
-[版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)保持原地址。旧根 `?v=...` / `?debug=...` 及 `/realistic/` 转独立写实站，`/illustrated/` 转独立插画站，完整保留查询和片段。main 本次入口迁移已通过本地测试，最终云端状态见[需求记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
+[版本选择页](https://lep-ton.github.io/gamex-proctor-simulator/)保持原地址。旧根 `?v=...` / `?debug=...` 及 `/realistic/` 转独立写实站，`/illustrated/` 转独立插画站，完整保留查询和片段。main 本次入口迁移已通过云端和真实线上验证，结果见[需求记录](.agentdocs/workflow/REQ-20261116130906-双版本分支发布/README.md)。
 
 两游戏站分别构建自己的产物，更新一版不触发另一版。两站仍同属 `lep-ton.github.io`，因此显式隔离保存键：插画版 `gamex-proctor-illustrated-v1`，写实版 `gamex-proctor-v1`；原写实记录保留。
 
